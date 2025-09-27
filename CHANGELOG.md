@@ -13,6 +13,19 @@
 
 ## [0.1.6] - 2025-09-27
 
+### Improved
+- Enhanced school selection autocomplete performance
+- Reduced school list from 500 to 200 items for better UI responsiveness
+- Added sorting by school name for improved user experience
+- Optimized dropdown performance with sort=True option
+- Updated documentation with autocomplete improvements
+
+### Fixed
+- Improved autocomplete functionality in school selection dropdown
+- Better handling of large school catalogs
+
+## [0.1.5] - 2025-09-27
+
 ### Added
 - TBD
 
