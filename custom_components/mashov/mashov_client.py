@@ -89,6 +89,8 @@ class MashovClient:
         if self._session and not self._session.closed:
             _LOGGER.debug("Closing Mashov client session")
             try:
+                # Wait for any pending requests to complete
+                await asyncio.sleep(0.1)
                 await self._session.close()
                 await asyncio.sleep(0.25)  # Wait for cleanup
             except Exception as e:
@@ -268,20 +270,27 @@ class MashovClient:
 
         # Fetch ALL students (kids)
         _LOGGER.debug("Fetching students from: %s", ME_ENDPOINT)
-        async with self._session.get(ME_ENDPOINT, headers=self._headers) as resp:
-            _LOGGER.debug("Students endpoint response status: %s", resp.status)
-            if resp.status == 401:
-                _LOGGER.error("Not authorized after login")
-                raise MashovAuthError("Not authorized after login")
-            if resp.status >= 400:
-                txt = await resp.text()
-                _LOGGER.error("Failed to query students HTTP %s: %s", resp.status, txt)
-                raise MashovError(f"Failed to query students: HTTP {resp.status}: {txt}")
-            arr = await resp.json()
-            if not isinstance(arr, list) or not arr:
-                _LOGGER.error("No students found for account")
-                raise MashovError("No students found for account")
-            _LOGGER.debug("Found %d students for account", len(arr))
+        try:
+            async with self._session.get(ME_ENDPOINT, headers=self._headers) as resp:
+                _LOGGER.debug("Students endpoint response status: %s", resp.status)
+                if resp.status == 401:
+                    _LOGGER.error("Not authorized after login")
+                    raise MashovAuthError("Not authorized after login")
+                if resp.status >= 400:
+                    txt = await resp.text()
+                    _LOGGER.error("Failed to query students HTTP %s: %s", resp.status, txt)
+                    raise MashovError(f"Failed to query students: HTTP {resp.status}: {txt}")
+                arr = await resp.json()
+                if not isinstance(arr, list) or not arr:
+                    _LOGGER.error("No students found for account")
+                    raise MashovError("No students found for account")
+                _LOGGER.debug("Found %d students for account", len(arr))
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout fetching students from Mashov")
+            raise MashovError("Timeout fetching students from Mashov")
+        except aiohttp.ClientError as e:
+            _LOGGER.error("Network error fetching students: %s", e)
+            raise MashovError(f"Network error fetching students: {e}")
 
         students: List[Dict[str, Any]] = []
         for s in arr:
@@ -293,6 +302,9 @@ class MashovClient:
             students.append({"id": int(sid), "name": name, "slug": _slugify(name) or f"student_{sid}"})
         self._students = students
         _LOGGER.info("Mashov: found %d student(s): %s", len(students), ", ".join([s["name"] for s in students]))
+        
+        # Ensure session is properly closed after initialization
+        await self.async_close()
 
     async def async_fetch_all(self) -> Dict[str, Any]:
         if not self._session:

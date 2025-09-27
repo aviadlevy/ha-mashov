@@ -11,6 +11,15 @@
 ### Fixed
 - TBD
 
+## [0.1.8] - 2025-09-27
+
+### Fixed
+- Fixed "Unclosed client session" error during authentication
+- Improved session management with proper cleanup
+- Added timeout handling for student data fetching
+- Enhanced error handling for network issues
+- Fixed session closure timing issues
+
 ## [0.1.7] - 2025-09-27
 
 ### Fixed
