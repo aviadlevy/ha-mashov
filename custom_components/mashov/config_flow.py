@@ -73,28 +73,27 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         for it in sorted_catalog
                         if it.get("semel") and it.get("name")
                     ]
-                    # Limit to first 200 schools for better autocomplete performance
-                    if len(self._catalog_options) > 200:
-                        self._catalog_options = self._catalog_options[:200]
+                    # Limit to first 50 schools for better dropdown performance
+                    if len(self._catalog_options) > 50:
+                        self._catalog_options = self._catalog_options[:50]
             except Exception as e:
                 _LOGGER.debug("Failed to load schools catalog: %s", e)
                 self._catalog_options = []
 
-        # Build schema with dropdown
+        # Build schema with text input and autocomplete
         if self._catalog_options and len(self._catalog_options) > 0:
-            _LOGGER.debug("Created %d dropdown options", len(self._catalog_options))
+            _LOGGER.debug("Created %d autocomplete options", len(self._catalog_options))
+            
+            # Create simple autocomplete list
+            autocomplete_list = [opt['label'] for opt in self._catalog_options]
             
             schema = vol.Schema({
                 vol.Required(CONF_USERNAME): str,
                 vol.Required(CONF_PASSWORD): str,
-                vol.Required(CONF_SCHOOL_ID): SelectSelector(
-                    SelectSelectorConfig(
-                        options=self._catalog_options,
-                        mode=SelectSelectorMode.DROPDOWN,
-                        multiple=False,
-                        sort=True,
-                    )
-                ),
+                vol.Required(CONF_SCHOOL_NAME, description={
+                    "suggested_value": "",
+                    "autocomplete": autocomplete_list
+                }): str,
             })
         else:
             schema = vol.Schema({
@@ -104,19 +103,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             })
 
         if user_input is not None:
-            # Determine school id from dropdown or manual input
-            if CONF_SCHOOL_ID in user_input:
-                # From dropdown - value is already correct
-                _LOGGER.debug("School ID from dropdown: %s", user_input[CONF_SCHOOL_ID])
+            # Determine school id from autocomplete or manual input
+            school_raw = user_input[CONF_SCHOOL_NAME].strip()
+            _LOGGER.debug("School input: %s", school_raw)
+            
+            if school_raw.isdigit():
+                # Direct semel number
+                user_input[CONF_SCHOOL_ID] = int(school_raw)
+                _LOGGER.debug("Using direct semel: %s", user_input[CONF_SCHOOL_ID])
             else:
-                # From manual input
-                school_raw = user_input[CONF_SCHOOL_NAME].strip()
-                _LOGGER.debug("School input: %s", school_raw)
-                
-                if school_raw.isdigit():
-                    # Direct semel number
-                    user_input[CONF_SCHOOL_ID] = int(school_raw)
-                    _LOGGER.debug("Using direct semel: %s", user_input[CONF_SCHOOL_ID])
+                # Try to extract semel from autocomplete format: "School Name – City (123456)"
+                import re
+                semel_match = re.search(r'\((\d+)\)$', school_raw)
+                if semel_match:
+                    user_input[CONF_SCHOOL_ID] = int(semel_match.group(1))
+                    _LOGGER.debug("Extracted semel from autocomplete: %s", user_input[CONF_SCHOOL_ID])
                 else:
                     tmp_client = MashovClient(
                         school_id=school_raw,

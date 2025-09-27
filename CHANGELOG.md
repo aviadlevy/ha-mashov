@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.13] - 2025-09-27
+
+### Fixed
+- Fixed Config Flow 400 Bad Request error by switching back to TextSelector
+- Reduced school catalog from 200 to 50 items for better performance
+- Improved autocomplete functionality with proper semel extraction
+- Enhanced school selection user experience
+
 ## [0.1.12] - 2025-09-27
 
 ### Improved
