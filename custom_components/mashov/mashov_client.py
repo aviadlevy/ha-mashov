@@ -11,6 +11,8 @@ from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
+# Mashov web endpoints
+LOGIN_PAGE = "https://web.mashov.info/students/login"
 API_BASE = "https://web.mashov.info/api/"
 LOGIN_ENDPOINT = API_BASE + "login"
 ME_ENDPOINT = API_BASE + "students"
@@ -97,33 +99,48 @@ class MashovClient:
         if not self._session:
             raise MashovError("Client session not initialized")
 
-        payload = {
-            "username": self.username,
-            "password": self.password,
-            "year": self.year,
-            "school": self.school_id,
-            "client": "ha-mashov",
-        }
         _LOGGER.debug("Logging in to Mashov (school=%s, year=%s, user=%s)", self.school_id, self.year, self.username)
-        _LOGGER.debug("Login endpoint: %s", LOGIN_ENDPOINT)
+        _LOGGER.debug("Login page: %s", LOGIN_PAGE)
 
         try:
+            # First, get the login page to get any CSRF tokens or session cookies
+            async with self._session.get(LOGIN_PAGE, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status >= 400:
+                    raise MashovError(f"Failed to access login page HTTP {resp.status}")
+                # Store any cookies from the login page
+                self._headers = {"Accept": "application/json", "Content-Type": "application/json"}
+
+            # Now try to login via API
+            payload = {
+                "username": self.username,
+                "password": self.password,
+                "year": self.year,
+                "school": self.school_id,
+                "client": "ha-mashov",
+            }
+            
+            _LOGGER.debug("Attempting API login to: %s", LOGIN_ENDPOINT)
             async with self._session.post(LOGIN_ENDPOINT, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status in (401, 403):
                     _LOGGER.error("Authentication failed for school=%s, year=%s, user=%s", self.school_id, self.year, self.username)
                     raise MashovAuthError("Authentication failed. Please check your credentials, school ID, and year.")
                 if resp.status >= 400:
                     txt = await resp.text()
+                    _LOGGER.error("Login failed HTTP %s: %s", resp.status, txt)
                     raise MashovError(f"Login failed HTTP {resp.status}: {txt}")
                 try:
                     data = await resp.json(content_type=None)
-                except Exception:
+                except Exception as e:
+                    _LOGGER.error("Failed to parse login response: %s", e)
                     data = {}
 
                 token = data.get("accessToken") or data.get("token") or resp.headers.get("X-CSRF-Token") or resp.headers.get("authorization")
-                self._headers = {"Accept": "application/json"}
                 if token:
                     self._headers["Authorization"] = token
+                    _LOGGER.debug("Authentication token received")
+                else:
+                    _LOGGER.warning("No authentication token received")
+                    
         except asyncio.TimeoutError:
             raise MashovError("Login timeout - Mashov server is not responding")
         except aiohttp.ClientError as e:
