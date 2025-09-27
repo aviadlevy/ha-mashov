@@ -72,9 +72,14 @@ class MashovClient:
 
     async def async_close(self):
         if self._session and not self._session.closed:
-            await self._session.close()
-            # Wait a bit to ensure cleanup
-            await asyncio.sleep(0.1)
+            try:
+                await self._session.close()
+                # Wait for cleanup to complete
+                await asyncio.sleep(0.25)
+            except Exception as e:
+                _LOGGER.debug("Error closing session: %s", e)
+            finally:
+                self._session = None
 
     @property
     def student_id(self) -> Optional[int]:
@@ -100,11 +105,13 @@ class MashovClient:
             "client": "ha-mashov",
         }
         _LOGGER.debug("Logging in to Mashov (school=%s, year=%s, user=%s)", self.school_id, self.year, self.username)
+        _LOGGER.debug("Login endpoint: %s", LOGIN_ENDPOINT)
 
         try:
             async with self._session.post(LOGIN_ENDPOINT, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status in (401, 403):
-                    raise MashovAuthError("Invalid credentials or school/year mismatch")
+                    _LOGGER.error("Authentication failed for school=%s, year=%s, user=%s", self.school_id, self.year, self.username)
+                    raise MashovAuthError("Authentication failed. Please check your credentials, school ID, and year.")
                 if resp.status >= 400:
                     txt = await resp.text()
                     raise MashovError(f"Login failed HTTP {resp.status}: {txt}")
