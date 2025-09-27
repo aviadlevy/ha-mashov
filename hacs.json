@@ -9,5 +9,5 @@
   ],
   "homeassistant": "2025.1.0",
   "iot_class": "cloud_polling",
-  "icon": "https://web.mashov.info/students/images/logo_students.png"
+  "icon": "https://brands.home-assistant.io/_/mashov/icon.png"
 }
