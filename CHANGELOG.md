@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.15] - 2025-09-28
+
+### Fixed
+- Fixed integration failure during school search
+- Removed premature authentication attempt during school name resolution
+- Improved school search flow to only authenticate after school selection
+- Enhanced error handling for school search operations
+
 ## [0.1.14] - 2025-09-28
 
 ### Fixed

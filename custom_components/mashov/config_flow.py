@@ -119,34 +119,23 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[CONF_SCHOOL_ID] = int(semel_match.group(1))
                     _LOGGER.debug("Extracted semel from autocomplete: %s", user_input[CONF_SCHOOL_ID])
                 else:
+                    # Search for schools without trying to authenticate
                     tmp_client = MashovClient(
-                        school_id=school_raw,
+                        school_id="placeholder",
                         year=None,
-                        username=user_input[CONF_USERNAME],
-                        password=user_input[CONF_PASSWORD],
+                        username="",
+                        password="",
                         api_base=DEFAULT_API_BASE,
                     )
                     try:
-                        await tmp_client.async_init(self.hass)  # resolves semel
-                        user_input[CONF_SCHOOL_ID] = tmp_client.school_id
-                    except MashovError:
-                        try:
-                            await tmp_client.async_close()
-                        except Exception:
-                            pass
-                        tmp_client2 = MashovClient(
-                            school_id="placeholder",
-                            year=None,
-                            username=user_input[CONF_USERNAME],
-                            password=user_input[CONF_PASSWORD],
-                            api_base=DEFAULT_API_BASE,
-                        )
-                        await tmp_client2.async_open_session()
-                        results = await tmp_client2.async_search_schools(school_raw, None)
-                        await tmp_client2.async_close()
+                        await tmp_client.async_open_session()
+                        results = await tmp_client.async_search_schools(school_raw, None)
+                        await tmp_client.async_close()
+                        
                         if not results:
                             errors["base"] = "school_not_found"
                             return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+                        
                         if len(results) > 1:
                             self._cached_user = user_input
                             # Create choices with school name and semel
@@ -160,7 +149,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                     self._school_choices[label] = int(semel)
                             _LOGGER.debug("Created %d school choices: %s", len(self._school_choices), list(self._school_choices.keys()))
                             return await self.async_step_pick_school()
+                        
                         user_input[CONF_SCHOOL_ID] = int(results[0]["semel"])
+                    except Exception as e:
+                        _LOGGER.error("Error searching for schools: %s", e)
+                        errors["base"] = "cannot_connect"
+                        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
             # Validate login; client will fetch all kids
             client = MashovClient(
