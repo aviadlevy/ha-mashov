@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.14] - 2025-09-28
+
+### Fixed
+- Fixed school selection display when multiple schools match
+- Added proper school names with city and semel in selection dropdown
+- Improved school choice presentation with SelectSelector
+- Enhanced user experience for multiple school matches
+
 ## [0.1.13] - 2025-09-27
 
 ### Fixed

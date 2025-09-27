@@ -149,7 +149,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
                         if len(results) > 1:
                             self._cached_user = user_input
-                            self._school_choices = { f"{r.get('name')} – {r.get('city','?')} ({r.get('semel')})": int(r.get('semel')) for r in results }
+                            # Create choices with school name and semel
+                            self._school_choices = {}
+                            for r in results:
+                                name = r.get('name', 'Unknown School')
+                                city = r.get('city', 'Unknown City')
+                                semel = r.get('semel')
+                                if semel:
+                                    label = f"{name} – {city} ({semel})"
+                                    self._school_choices[label] = int(semel)
+                            _LOGGER.debug("Created %d school choices: %s", len(self._school_choices), list(self._school_choices.keys()))
                             return await self.async_step_pick_school()
                         user_input[CONF_SCHOOL_ID] = int(results[0]["semel"])
 
@@ -182,8 +191,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._cached_user[CONF_SCHOOL_NAME] = str(user_input["selected_school"])
             return await self.async_step_user(self._cached_user)
 
+        # Convert choices to SelectSelector format
+        options = [{"value": semel, "label": label} for label, semel in self._school_choices.items()]
+        
         schema = vol.Schema({
-            vol.Required("selected_school"): vol.In(self._school_choices)
+            vol.Required("selected_school"): SelectSelector(
+                SelectSelectorConfig(
+                    options=options,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    multiple=False,
+                )
+            )
         })
         return self.async_show_form(step_id="pick_school", data_schema=schema, errors=errors)
 
