@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
@@ -9,6 +10,8 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 from .const import (
     DOMAIN,
@@ -42,7 +45,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await tmp.async_open_session()
                 catalog = await tmp.async_fetch_schools_catalog(None)
                 await tmp.async_close()
-                if catalog:
+                if catalog and len(catalog) > 0:
                     self._catalog_options = [
                         {
                             "value": int(it["semel"]),
@@ -51,25 +54,34 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         for it in catalog
                         if it.get("semel") and it.get("name")
                     ]
-            except Exception:
-                pass
+                    # Limit to first 500 schools to avoid UI issues
+                    if len(self._catalog_options) > 500:
+                        self._catalog_options = self._catalog_options[:500]
+            except Exception as e:
+                _LOGGER.debug("Failed to load schools catalog: %s", e)
+                self._catalog_options = []
 
         # Build schema
-        if self._catalog_options:
-            school_field = vol.Required(CONF_SCHOOL_ID)(
-                SelectSelector(
-                    SelectSelectorConfig(
-                        options=self._catalog_options,
-                        mode=SelectSelectorMode.DROPDOWN,  # supports type-ahead filtering
-                        multiple=False,
-                    )
-                )
-            )
-            schema = vol.Schema({
-                vol.Required(CONF_USERNAME): str,
-                vol.Required(CONF_PASSWORD): str,
-                CONF_SCHOOL_ID: school_field,
-            })
+        if self._catalog_options and len(self._catalog_options) > 0:
+            try:
+                schema = vol.Schema({
+                    vol.Required(CONF_USERNAME): str,
+                    vol.Required(CONF_PASSWORD): str,
+                    vol.Required(CONF_SCHOOL_ID): SelectSelector(
+                        SelectSelectorConfig(
+                            options=self._catalog_options,
+                            mode=SelectSelectorMode.DROPDOWN,  # supports type-ahead filtering
+                            multiple=False,
+                        )
+                    ),
+                })
+            except Exception as e:
+                _LOGGER.warning("Failed to create dropdown schema, falling back to text input: %s", e)
+                schema = vol.Schema({
+                    vol.Required(CONF_USERNAME): str,
+                    vol.Required(CONF_PASSWORD): str,
+                    vol.Required(CONF_SCHOOL_NAME, description={"suggested_value": ""}): str,  # name or semel
+                })
         else:
             schema = vol.Schema({
                 vol.Required(CONF_USERNAME): str,
