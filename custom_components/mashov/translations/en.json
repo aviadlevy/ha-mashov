@@ -1,0 +1,22 @@
+{
+  "title": "Mashov",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mashov",
+        "description": "Login with your Mashov credentials. Choose student if needed.",
+        "data": {
+          "school_id": "School ID",
+          "year": "Year",
+          "username": "Username/ID",
+          "password": "Password",
+          "student_name": "Student Name (optional)"
+        }
+      }
+    },
+    "error": {
+      "auth": "Authentication failed. Check credentials/school/year.",
+      "cannot_connect": "Cannot connect to Mashov."
+    }
+  }
+}
