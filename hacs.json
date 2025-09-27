@@ -1,6 +1,7 @@
 {
   "name": "Mashov",
   "content_in_root": false,
+  "filename": "mashov",
   "render_readme": true,
   "country": "IL",
   "domains": [
