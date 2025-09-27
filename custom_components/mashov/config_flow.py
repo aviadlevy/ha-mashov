@@ -1,40 +1,131 @@
 
 from __future__ import annotations
 
-from datetime import date
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .const import (
     DOMAIN,
-    CONF_SCHOOL_ID, CONF_YEAR, CONF_USERNAME, CONF_PASSWORD, CONF_STUDENT_NAME,
-    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME,
-    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME
+    CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_USERNAME, CONF_PASSWORD,
+    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
+    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE
 )
-from .mashov_client import MashovClient, MashovAuthError
-
-STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_SCHOOL_ID): vol.Coerce(int),
-    vol.Optional(CONF_YEAR, default=date.today().year): vol.Coerce(int),
-    vol.Required(CONF_USERNAME): str,
-    vol.Required(CONF_PASSWORD): str,
-    vol.Optional(CONF_STUDENT_NAME): str,
-})
+from .mashov_client import MashovClient, MashovAuthError, MashovError
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
+    def __init__(self):
+        self._cached_user = None
+        self._school_choices = None
+        self._catalog_options = None  # list of {"value": semel, "label": display}
+
     async def async_step_user(self, user_input=None) -> FlowResult:
         errors = {}
+
+        # Try to load catalog for dropdown (no login required)
+        if self._catalog_options is None:
+            try:
+                tmp = MashovClient(
+                    school_id="placeholder",
+                    year=None,
+                    username="",
+                    password="",
+                    api_base=DEFAULT_API_BASE,
+                )
+                await tmp.async_open_session()
+                catalog = await tmp.async_fetch_schools_catalog(None)
+                await tmp.async_close()
+                if catalog:
+                    self._catalog_options = [
+                        {
+                            "value": int(it["semel"]),
+                            "label": f"{it.get('name','?')} – {it.get('city','?')} ({it['semel']})",
+                        }
+                        for it in catalog
+                        if it.get("semel") and it.get("name")
+                    ]
+            except Exception:
+                pass
+
+        # Build schema
+        if self._catalog_options:
+            school_field = vol.Required(CONF_SCHOOL_ID)(
+                SelectSelector(
+                    SelectSelectorConfig(
+                        options=self._catalog_options,
+                        mode=SelectSelectorMode.DROPDOWN,  # supports type-ahead filtering
+                        multiple=False,
+                    )
+                )
+            )
+            schema = vol.Schema({
+                vol.Required(CONF_USERNAME): str,
+                vol.Required(CONF_PASSWORD): str,
+                CONF_SCHOOL_ID: school_field,
+            })
+        else:
+            schema = vol.Schema({
+                vol.Required(CONF_USERNAME): str,
+                vol.Required(CONF_PASSWORD): str,
+                vol.Required(CONF_SCHOOL_NAME, description={"suggested_value": ""}): str,  # name or semel
+            })
+
         if user_input is not None:
+            # Determine school id
+            if CONF_SCHOOL_ID in user_input:
+                user_input[CONF_SCHOOL_ID] = int(user_input[CONF_SCHOOL_ID])
+            else:
+                school_raw = user_input[CONF_SCHOOL_NAME].strip()
+                if school_raw.isdigit():
+                    user_input[CONF_SCHOOL_ID] = int(school_raw)
+                else:
+                    tmp_client = MashovClient(
+                        school_id=school_raw,
+                        year=None,
+                        username=user_input[CONF_USERNAME],
+                        password=user_input[CONF_PASSWORD],
+                        api_base=DEFAULT_API_BASE,
+                    )
+                    try:
+                        await tmp_client.async_init(self.hass)  # resolves semel
+                        user_input[CONF_SCHOOL_ID] = tmp_client.school_id
+                    except MashovError:
+                        try:
+                            await tmp_client.async_close()
+                        except Exception:
+                            pass
+                        tmp_client2 = MashovClient(
+                            school_id="placeholder",
+                            year=None,
+                            username=user_input[CONF_USERNAME],
+                            password=user_input[CONF_PASSWORD],
+                            api_base=DEFAULT_API_BASE,
+                        )
+                        await tmp_client2.async_open_session()
+                        results = await tmp_client2.async_search_schools(school_raw, None)
+                        await tmp_client2.async_close()
+                        if not results:
+                            errors["base"] = "school_not_found"
+                            return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+                        if len(results) > 1:
+                            self._cached_user = user_input
+                            self._school_choices = { f"{r.get('name')} – {r.get('city','?')} ({r.get('semel')})": int(r.get('semel')) for r in results }
+                            return await self.async_step_pick_school()
+                        user_input[CONF_SCHOOL_ID] = int(results[0]["semel"])
+
+            # Validate login; client will fetch all kids
             client = MashovClient(
                 school_id=user_input[CONF_SCHOOL_ID],
-                year=user_input.get(CONF_YEAR),
+                year=None,
                 username=user_input[CONF_USERNAME],
                 password=user_input[CONF_PASSWORD],
-                student_name=user_input.get(CONF_STUDENT_NAME),
             )
             try:
                 await client.async_init(self.hass)
@@ -43,36 +134,42 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except Exception:
                 errors["base"] = "cannot_connect"
             else:
-                title = f"{client.student_display} ({user_input[CONF_SCHOOL_ID]}/{user_input.get(CONF_YEAR)})"
                 await client.async_close()
-                return self.async_create_entry(title=title, data=user_input)
+                user_input.pop(CONF_SCHOOL_NAME, None)
+                return self.async_create_entry(title=f"Mashov ({user_input[CONF_SCHOOL_ID]})", data=user_input)
 
-        return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors)
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
-    async def async_step_reauth(self, user_input=None) -> FlowResult:
-        return await self.async_step_user()
+    async def async_step_pick_school(self, user_input=None) -> FlowResult:
+        errors = {}
+        if user_input is not None:
+            self._cached_user[CONF_SCHOOL_ID] = user_input["selected_school"]
+            self._cached_user[CONF_SCHOOL_NAME] = str(user_input["selected_school"])
+            return await self.async_step_user(self._cached_user)
+
+        schema = vol.Schema({
+            vol.Required("selected_school"): vol.In(self._school_choices)
+        })
+        return self.async_show_form(step_id="pick_school", data_schema=schema, errors=errors)
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry):
         self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None) -> FlowResult:
-        import voluptuous as vol
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(title="", data=user_input)
 
-        from .const import (
-            CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME,
-            DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME
-        )
         options = {
             CONF_HOMEWORK_DAYS_BACK: self.config_entry.options.get(CONF_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_BACK),
             CONF_HOMEWORK_DAYS_FORWARD: self.config_entry.options.get(CONF_HOMEWORK_DAYS_FORWARD, DEFAULT_HOMEWORK_DAYS_FORWARD),
             CONF_DAILY_REFRESH_TIME: self.config_entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_DAILY_REFRESH_TIME),
+            CONF_API_BASE: self.config_entry.options.get(CONF_API_BASE, DEFAULT_API_BASE),
         }
         schema = vol.Schema({
             vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(int, vol.Range(min=0, max=60)),
             vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(int, vol.Range(min=1, max=120)),
             vol.Optional(CONF_DAILY_REFRESH_TIME, default=options[CONF_DAILY_REFRESH_TIME]): str,
+            vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
         })
         return self.async_show_form(step_id="init", data_schema=schema)

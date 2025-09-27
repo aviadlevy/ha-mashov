@@ -4,19 +4,22 @@
     "step": {
       "user": {
         "title": "Mashov",
-        "description": "Login with your Mashov credentials. Choose student if needed.",
+        "description": "Enter your credentials. Pick your school from the dropdown (type to filter).",
         "data": {
-          "school_id": "School ID",
-          "year": "Year",
           "username": "Username/ID",
           "password": "Password",
-          "student_name": "Student Name (optional)"
+          "school_id": "School"
         }
+      },
+      "pick_school": {
+        "title": "Select School",
+        "description": "Multiple schools matched. Please choose one."
       }
     },
     "error": {
-      "auth": "Authentication failed. Check credentials/school/year.",
-      "cannot_connect": "Cannot connect to Mashov."
+      "auth": "Authentication failed. Check credentials/school.",
+      "cannot_connect": "Cannot reach Mashov.",
+      "school_not_found": "No school matched that name."
     }
   }
 }

@@ -14,13 +14,22 @@
 ## [0.1.3] - 2025-09-27
 
 ### Added
-- TBD
+- Comprehensive debug logging throughout the integration
+- Enhanced error handling with detailed error messages
+- Improved session management with proper cleanup
+- Better timeout and connection error handling
 
 ### Changed
-- TBD
+- Multiple students support - integration now fetches all children automatically
+- School selection via dropdown with autocomplete (fallback to text input)
+- Automatic school year detection (no manual year input needed)
+- Enhanced authentication flow with better error reporting
 
 ### Fixed
-- TBD
+- Fixed "Unclosed client session" errors during integration unload
+- Improved authentication error messages
+- Better handling of network timeouts and connection issues
+- Fixed session cleanup on integration reload/restart
 
 ## [0.1.2] - 2025-09-27
 

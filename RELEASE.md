@@ -6,12 +6,12 @@ This document explains how to manage releases for the ha-mashov integration.
 
 ### Create a Pre-release (Beta/Alpha)
 ```powershell
-.\scripts\release.ps1 -Version 0.1.1-beta.1 -PreRelease
+.\scripts\release.ps1 -Version 0.1.4-beta.1 -PreRelease
 ```
 
 ### Create a Stable Release
 ```powershell
-.\scripts\release.ps1 -Version 0.1.1
+.\scripts\release.ps1 -Version 0.1.4
 ```
 
 ## Version Numbering
@@ -24,8 +24,10 @@ We follow [Semantic Versioning](https://semver.org/):
 ### Examples:
 - `0.1.0` - Initial stable release
 - `0.1.1` - Bug fix release
+- `0.1.2` - Session management improvements
+- `0.1.3` - Enhanced logging and multiple students support
 - `0.2.0` - New features
-- `0.1.1-beta.1` - Pre-release with bug fixes
+- `0.1.4-beta.1` - Pre-release with bug fixes
 - `0.2.0-alpha.1` - Pre-release with new features
 
 ## What the Script Does
@@ -49,10 +51,10 @@ We follow [Semantic Versioning](https://semver.org/):
 ### Option 1: Using GitHub CLI (Recommended)
 ```bash
 # For stable release
-gh release create v0.1.1 --title "Release v0.1.1" --notes "See CHANGELOG.md for details"
+gh release create v0.1.4 --title "Release v0.1.4" --notes "See CHANGELOG.md for details"
 
 # For pre-release
-gh release create v0.1.1-beta.1 --prerelease --title "Release v0.1.1-beta.1" --notes "See CHANGELOG.md for details"
+gh release create v0.1.4-beta.1 --prerelease --title "Release v0.1.4-beta.1" --notes "See CHANGELOG.md for details"
 ```
 
 ### Option 2: Using GitHub Web Interface
@@ -82,15 +84,19 @@ Before creating a release:
 
 - [ ] All features implemented and tested
 - [ ] CHANGELOG.md updated with changes
-- [ ] Version numbers updated
+- [ ] Version numbers updated in VERSION and manifest.json
 - [ ] Code reviewed
 - [ ] Tests passing (if any)
-- [ ] Documentation updated
+- [ ] Documentation updated (README.md, RELEASE.md)
+- [ ] Debug logging verified and working
+- [ ] Error handling tested
 
 For stable releases:
 - [ ] Pre-release tested by community
 - [ ] No critical bugs reported
 - [ ] All breaking changes documented
+- [ ] Session management tested (no unclosed session errors)
+- [ ] Multiple students functionality verified
 
 ## Rollback
 

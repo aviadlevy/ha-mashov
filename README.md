@@ -1,165 +1,118 @@
 # Mashov – Home Assistant Integration (HACS)
 
-Custom integration that logs into **משו"ב (Mashov)** and exposes your student's data as sensors:
-- **Timetable (today)** – lessons list for today
-- **Weekly Plan** – current week's plan
-- **Homework** – homework items due in a configurable window
-- **Behavior** – behavior events count & details
+Unofficial integration for **משו"ב (Mashov)** that logs into the student portal and exposes data as sensors:
+- **Timetable (Today)**
+- **Weekly Plan**
+- **Homework**
+- **Behavior**
 
-> ⚠️ This project is **unofficial** and not affiliated with Mashov. Use at your own risk and follow your school's policies.
+> This project is **community-made** and not affiliated with Mashov. Use at your own risk and follow your school's policies.
 
 ---
 
-## Features
+## ✨ What's new in v0.1.3
+- **Multiple kids automatically** – the integration fetches **all children** linked to the account and creates **4 sensors per child**.
+- **No "Year" field** – the current **Israeli school year** is detected automatically (Sep–Dec ⇒ `year + 1`, otherwise `year`).
+- **School picker with autocomplete** – select your school from a **dropdown** (type to filter). If the catalog can't be loaded, a text box fallback appears and we auto-resolve the Semel.
+- **API base override (Options)** – for environments that use a different host (e.g., mobile API).
+- **Enhanced logging** – comprehensive debug logs for troubleshooting authentication and data fetching issues.
+- **Improved error handling** – better timeout and connection error handling with detailed error messages.
 
-- Config Flow (UI) via **Settings → Devices & Services → Add Integration → Mashov**.
-- Supports **multiple students** (create multiple entries).
-- Daily refresh via a Coordinator (by default at 02:30 local time). You can also trigger an on-demand refresh with the provided service.
-- Four sensors with rich attributes (JSON-like lists) you can use in automations, templates, or dashboards.
+### ⚠️ Breaking changes
+- **`student_name` was removed** from config. The integration now discovers **all** kids; sensors are grouped and named by child.
+- Entity `unique_id`s now include the **numeric student id** for stability. If you previously renamed entities, you may need to re-link them.
 
-## Credentials & Fields
+---
 
-When adding the integration you'll be asked for:
-- `school_id` (mandatory)
-- `year` (defaults to current Hebrew-school year or current Gregorian year; overridable)
-- `username` / `password`
-- `student_name` (optional; in case the account has more than one child)
+## 🧩 Features
+- Simple **Config Flow (UI)** via Settings → Devices & Services → Add Integration → **Mashov**.
+- **Daily refresh** (02:30 by default) + `mashov.refresh_now` service for on-demand updates.
+- Sensors expose compact **state** (count) + rich **attributes** (lists you can use in automations / dashboards).
+- **Diagnostics** endpoint for safe issue reporting (redacts credentials).
 
-> Password is stored as a **secret** field inside Home Assistant's config entry storage. It is not logged.
+---
 
-## Entities
+## 📦 Installation
 
-Each config entry creates four sensors (entity IDs include the student name for convenience):
+### Via HACS (recommended)
+1. Open **HACS → Integrations → ⋯ → Custom repositories**.
+2. Add repository URL: `https://github.com/NirBY/ha-mashov`. Select **Category: Integration**.
+3. Search for **Mashov** in HACS, install, and **Restart Home Assistant**.
 
-- `sensor.mashov_{student_slug}_timetable_today`
-  - **state**: number of items
-  - **attributes**: list of lessons for today with fields like `start`, `end`, `subject`, `teacher`, `room`
+### Manual
+1. Copy `custom_components/mashov` into your HA `/config/` folder.
+2. Restart Home Assistant.
 
-- `sensor.mashov_{student_slug}_weekly_plan`
-  - **state**: items count
-  - **attributes**: list for the current ISO week
+> The integration includes custom `icon.png` and `logo.png` for better visuals in Home Assistant.
 
-- `sensor.mashov_{student_slug}_homework`
-  - **state**: number of upcoming/overdue homework items
-  - **attributes**: each item with `subject`, `title`, `due_date`, `notes`, `submitted`
+---
 
-- `sensor.mashov_{student_slug}_behavior`
-  - **state**: total behavior items in the selected window
-  - **attributes**: list of events with `date`, `type`, `description`, `teacher`
+## ⚙️ Configuration
 
-## Service
+1. **Add Integration → Mashov**.
+2. Enter **username / password**.
+3. Pick your **school** from the dropdown (type to filter). If the list doesn’t load, a text field appears; type the **school name in Hebrew** or the **Semel** and we’ll resolve it.
+4. Done — sensors for **each child** will be created.
 
-- `mashov.refresh_now` – Trigger an immediate refresh for a given config entry.
+### Options
+- **Homework window**: days back (default 7), days forward (default 21)
+- **Daily refresh time**: default `02:30`
+- **API base**: default `https://web.mashov.info/api/` (override if your deployment differs)
 
+---
+
+## 🧠 Entities (per child)
+
+For each child **N**, four sensors are created:
+
+- **Timetable (Today)** – `sensor.mashov_<student_id>_timetable_today`
+- **Weekly Plan** – `sensor.mashov_<student_id>_weekly_plan`
+- **Homework** – `sensor.mashov_<student_id>_homework`
+- **Behavior** – `sensor.mashov_<student_id>_behavior`
+
+**State** = number of items.  
+**Attributes** include full item lists (e.g., lessons with `start`, `end`, `subject`, `teacher`, `room`; homework with `subject`, `title`, `due_date`, `notes`, `submitted`, etc.).
+
+> Tip: Use `{ state_attr('sensor.mashov_12345_homework', 'items') }` in templates to access the list.
+
+---
+
+## 🛠️ Services
+
+### `mashov.refresh_now`
+Trigger an immediate refresh.
 ```yaml
 service: mashov.refresh_now
 data:
-  entry_id: YOUR_ENTRY_ID   # optional; if omitted, all entries refresh
+  entry_id: YOUR_ENTRY_ID  # optional; if omitted, all entries refresh
 ```
 
-## Installation (HACS)
+---
 
-1. HACS → Integrations → ⋯ → **Custom repositories** → URL: `https://github.com/NirBY/ha-mashov`, Category: **Integration**
-2. Search for **Mashov** in HACS and install.
-3. Restart Home Assistant.
-4. Settings → Devices & Services → Add Integration → **Mashov**.
+## 🔍 Troubleshooting
 
-### Installing Pre-releases
+- **401 / 403**: re-check credentials and school choice. Try **Reconfigure** or **Remove & Add** the integration again.
+- **Different host**: open **Options → API base** and paste the base prefix you see in your browser DevTools Network tab (up to `/api/`).  
+  Common defaults: `https://web.mashov.info/api/`, sometimes `https://mobileapi.mashov.info/api/`.
+- **No schools in dropdown**: temporary catalog issue — the flow falls back to text; enter the name or Semel to resolve.
+- **Multiple kids missing**: ensure your account actually lists multiple students in Mashov. Check HA logs for `custom_components.mashov` debug entries.
+- **Session errors**: if you see "Unclosed client session" errors, restart Home Assistant to clear any stale connections.
 
-To test the latest features before they're officially released:
-
-1. In HACS, click on the **Mashov** integration
-2. Click on the **version number** (e.g., "0.1.0")
-3. Select a **pre-release version** (e.g., "0.1.1-beta.1")
-4. Click **Install**
-5. Restart Home Assistant
-
-> **Note**: Pre-releases may contain bugs and should only be used for testing.
-
-## Troubleshooting
-
-- If you get **401 / 403**:
-  - Double-check credentials, school id, and year.
-  - Try the **Reauthenticate** option in the integration options.
-- Network/CSP can occasionally change on Mashov's side. Endpoints are centralized in `mashov_client.py` → `API` constants. Adjust if Mashov changes routes.
-
-## Debug Logging
-
-To enable debug logging for this integration:
-
-### Method 1: Via Configuration (Recommended)
-Add to your `configuration.yaml`:
-
+### Enable debug logs
 ```yaml
 logger:
   logs:
     custom_components.mashov: debug
 ```
 
-### Method 2: Via Developer Tools
-1. Go to **Settings** → **System** → **Logs**
-2. Click **Load Full Home Assistant Log**
-3. Look for entries containing `custom_components.mashov`
+---
 
-### Method 3: Via Logs File
-Check your Home Assistant logs file (usually in `/config/home-assistant.log`) for entries like:
-```
-2025-01-XX XX:XX:XX DEBUG (MainThread) [custom_components.mashov.mashov_client] Logging in to Mashov (school=12345, year=2025, user=username)
-2025-01-XX XX:XX:XX INFO (MainThread) [custom_components.mashov.mashov_client] Mashov: selected student John Doe (id=67890)
-```
-
-### What You'll See in Debug Logs:
-- **Authentication attempts** (without passwords)
-- **Student selection process**
-- **API requests and responses**
-- **Error handling and retry attempts**
-- **Data normalization issues**
-
-> **Note**: Debug logs can be verbose. Only enable when troubleshooting issues.
-
-## Development
-
-### Release Management
-
-This project uses automated release management with semantic versioning:
-
-- **Stable releases**: `1.0.0`, `1.1.0`, `1.1.1`
-- **Pre-releases**: `1.1.0-beta.1`, `1.1.0-alpha.2`, `1.1.0-rc.1`
-
-#### Creating a Release
-
-```powershell
-# Create a pre-release (for testing)
-.\scripts\release.ps1 -Version 0.1.1-beta.1 -PreRelease
-
-# Create a stable release
-.\scripts\release.ps1 -Version 0.1.1
-```
-
-The script automatically:
-- Updates version files (`VERSION`, `manifest.json`)
-- Updates `CHANGELOG.md`
-- Creates git tags
-- Pushes to GitHub
-- Shows GitHub CLI commands for creating releases
-
-See [RELEASE.md](RELEASE.md) for detailed release management documentation.
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Update `CHANGELOG.md`
-5. Test thoroughly
-6. Submit a pull request
-
-## Disclaimer
-
-This integration performs programmatic access to `web.mashov.info` APIs as used by their web client.
-Mashov can change endpoints or introduce new security measures at any time. This project makes best
-effort to follow the web client's behavior and will need updates if the remote APIs change.
+## 🔐 Privacy & Security
+- Credentials are stored by Home Assistant in the config entry store.
+- The integration mirrors the Mashov web client behavior (headers, cookies, API calls). Endpoints may change without notice.
 
 ---
 
-© 2025 Nir Ben Yair – MIT License
+## 📄 License
+MIT © 2025
+
