@@ -78,24 +78,19 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.debug("Failed to load schools catalog: %s", e)
                 self._catalog_options = []
 
-        # Build schema with autocomplete
+        # Build schema with dropdown
         if self._catalog_options and len(self._catalog_options) > 0:
-            # Create autocomplete suggestions from catalog
-            autocomplete_suggestions = [
-                f"{opt['label']}" for opt in self._catalog_options
-            ]
-            _LOGGER.debug("Created %d autocomplete suggestions", len(autocomplete_suggestions))
+            _LOGGER.debug("Created %d dropdown options", len(self._catalog_options))
             
             schema = vol.Schema({
                 vol.Required(CONF_USERNAME): str,
                 vol.Required(CONF_PASSWORD): str,
-                vol.Required(CONF_SCHOOL_NAME, description={
-                    "suggested_value": "",
-                    "autocomplete": autocomplete_suggestions
-                }): TextSelector(
-                    TextSelectorConfig(
-                        type=TextSelectorType.TEXT,
-                        autocomplete=autocomplete_suggestions
+                vol.Required(CONF_SCHOOL_ID): SelectSelector(
+                    SelectSelectorConfig(
+                        options=self._catalog_options,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        multiple=False,
+                        sort=True,
                     )
                 ),
             })
@@ -107,21 +102,19 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             })
 
         if user_input is not None:
-            # Determine school id from autocomplete or manual input
-            school_raw = user_input[CONF_SCHOOL_NAME].strip()
-            _LOGGER.debug("School input: %s", school_raw)
-            
-            if school_raw.isdigit():
-                # Direct semel number
-                user_input[CONF_SCHOOL_ID] = int(school_raw)
-                _LOGGER.debug("Using direct semel: %s", user_input[CONF_SCHOOL_ID])
+            # Determine school id from dropdown or manual input
+            if CONF_SCHOOL_ID in user_input:
+                # From dropdown - value is already correct
+                _LOGGER.debug("School ID from dropdown: %s", user_input[CONF_SCHOOL_ID])
             else:
-                # Try to extract semel from autocomplete format: "School Name – City (123456)"
-                import re
-                semel_match = re.search(r'\((\d+)\)$', school_raw)
-                if semel_match:
-                    user_input[CONF_SCHOOL_ID] = int(semel_match.group(1))
-                    _LOGGER.debug("Extracted semel from autocomplete: %s", user_input[CONF_SCHOOL_ID])
+                # From manual input
+                school_raw = user_input[CONF_SCHOOL_NAME].strip()
+                _LOGGER.debug("School input: %s", school_raw)
+                
+                if school_raw.isdigit():
+                    # Direct semel number
+                    user_input[CONF_SCHOOL_ID] = int(school_raw)
+                    _LOGGER.debug("Using direct semel: %s", user_input[CONF_SCHOOL_ID])
                 else:
                     tmp_client = MashovClient(
                         school_id=school_raw,

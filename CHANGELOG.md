@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.11] - 2025-09-27
+
+### Fixed
+- Fixed Config Flow 400 Bad Request error
+- Reverted to SelectSelector for better compatibility
+- Fixed dropdown selection handling
+- Improved school selection user experience
+
 ## [0.1.10] - 2025-09-27
 
 ### Fixed
