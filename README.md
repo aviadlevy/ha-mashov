@@ -64,6 +64,18 @@ data:
 3. Restart Home Assistant.
 4. Settings → Devices & Services → Add Integration → **Mashov**.
 
+### Installing Pre-releases
+
+To test the latest features before they're officially released:
+
+1. In HACS, click on the **Mashov** integration
+2. Click on the **version number** (e.g., "0.1.0")
+3. Select a **pre-release version** (e.g., "0.1.1-beta.1")
+4. Click **Install**
+5. Restart Home Assistant
+
+> **Note**: Pre-releases may contain bugs and should only be used for testing.
+
 ## Troubleshooting
 
 - If you get **401 / 403**:
@@ -104,6 +116,43 @@ Check your Home Assistant logs file (usually in `/config/home-assistant.log`) fo
 - **Data normalization issues**
 
 > **Note**: Debug logs can be verbose. Only enable when troubleshooting issues.
+
+## Development
+
+### Release Management
+
+This project uses automated release management with semantic versioning:
+
+- **Stable releases**: `1.0.0`, `1.1.0`, `1.1.1`
+- **Pre-releases**: `1.1.0-beta.1`, `1.1.0-alpha.2`, `1.1.0-rc.1`
+
+#### Creating a Release
+
+```powershell
+# Create a pre-release (for testing)
+.\scripts\release.ps1 -Version 0.1.1-beta.1 -PreRelease
+
+# Create a stable release
+.\scripts\release.ps1 -Version 0.1.1
+```
+
+The script automatically:
+- Updates version files (`VERSION`, `manifest.json`)
+- Updates `CHANGELOG.md`
+- Creates git tags
+- Pushes to GitHub
+- Shows GitHub CLI commands for creating releases
+
+See [RELEASE.md](RELEASE.md) for detailed release management documentation.
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Update `CHANGELOG.md`
+5. Test thoroughly
+6. Submit a pull request
 
 ## Disclaimer
 
