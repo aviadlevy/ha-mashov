@@ -11,6 +11,15 @@
 ### Fixed
 - TBD
 
+## [0.1.7] - 2025-09-27
+
+### Fixed
+- Fixed ValueError in school selection dropdown
+- Replaced SelectSelector with TextSelector for better autocomplete support
+- Added proper semel extraction from autocomplete format
+- Improved school selection user experience with working autocomplete
+- Added debug logging for school ID selection process
+
 ## [0.1.6] - 2025-09-27
 
 ### Improved
@@ -23,28 +32,6 @@
 ### Fixed
 - Improved autocomplete functionality in school selection dropdown
 - Better handling of large school catalogs
-
-## [0.1.5] - 2025-09-27
-
-### Added
-- TBD
-
-### Changed
-- TBD
-
-### Fixed
-- TBD
-
-## [0.1.6] - 2025-09-27
-
-### Added
-- TBD
-
-### Changed
-- TBD
-
-### Fixed
-- TBD
 
 ## [0.1.5] - 2025-09-27
 

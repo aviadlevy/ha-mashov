@@ -9,6 +9,9 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,28 +66,27 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.debug("Failed to load schools catalog: %s", e)
                 self._catalog_options = []
 
-        # Build schema
+        # Build schema with autocomplete
         if self._catalog_options and len(self._catalog_options) > 0:
-            try:
-                schema = vol.Schema({
-                    vol.Required(CONF_USERNAME): str,
-                    vol.Required(CONF_PASSWORD): str,
-                    vol.Required(CONF_SCHOOL_ID): SelectSelector(
-                        SelectSelectorConfig(
-                            options=self._catalog_options,
-                            mode=SelectSelectorMode.DROPDOWN,
-                            multiple=False,
-                            sort=True,
-                        )
-                    ),
-                })
-            except Exception as e:
-                _LOGGER.warning("Failed to create dropdown schema, falling back to text input: %s", e)
-                schema = vol.Schema({
-                    vol.Required(CONF_USERNAME): str,
-                    vol.Required(CONF_PASSWORD): str,
-                    vol.Required(CONF_SCHOOL_NAME, description={"suggested_value": ""}): str,  # name or semel
-                })
+            # Create autocomplete suggestions from catalog
+            autocomplete_suggestions = [
+                f"{opt['label']}" for opt in self._catalog_options
+            ]
+            _LOGGER.debug("Created %d autocomplete suggestions", len(autocomplete_suggestions))
+            
+            schema = vol.Schema({
+                vol.Required(CONF_USERNAME): str,
+                vol.Required(CONF_PASSWORD): str,
+                vol.Required(CONF_SCHOOL_NAME, description={
+                    "suggested_value": "",
+                    "autocomplete": autocomplete_suggestions
+                }): TextSelector(
+                    TextSelectorConfig(
+                        type=TextSelectorType.TEXT,
+                        autocomplete=autocomplete_suggestions
+                    )
+                ),
+            })
         else:
             schema = vol.Schema({
                 vol.Required(CONF_USERNAME): str,
@@ -93,15 +95,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             })
 
         if user_input is not None:
-            # Determine school id
-            if CONF_SCHOOL_ID in user_input:
-                _LOGGER.debug("School ID from dropdown: %s (type: %s)", user_input[CONF_SCHOOL_ID], type(user_input[CONF_SCHOOL_ID]))
-                # user_input[CONF_SCHOOL_ID] is already the correct value from SelectSelector
-                pass
+            # Determine school id from autocomplete or manual input
+            school_raw = user_input[CONF_SCHOOL_NAME].strip()
+            _LOGGER.debug("School input: %s", school_raw)
+            
+            if school_raw.isdigit():
+                # Direct semel number
+                user_input[CONF_SCHOOL_ID] = int(school_raw)
+                _LOGGER.debug("Using direct semel: %s", user_input[CONF_SCHOOL_ID])
             else:
-                school_raw = user_input[CONF_SCHOOL_NAME].strip()
-                if school_raw.isdigit():
-                    user_input[CONF_SCHOOL_ID] = int(school_raw)
+                # Try to extract semel from autocomplete format: "School Name – City (123456)"
+                import re
+                semel_match = re.search(r'\((\d+)\)$', school_raw)
+                if semel_match:
+                    user_input[CONF_SCHOOL_ID] = int(semel_match.group(1))
+                    _LOGGER.debug("Extracted semel from autocomplete: %s", user_input[CONF_SCHOOL_ID])
                 else:
                     tmp_client = MashovClient(
                         school_id=school_raw,
