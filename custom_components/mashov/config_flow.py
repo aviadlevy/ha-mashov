@@ -95,7 +95,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # Determine school id
             if CONF_SCHOOL_ID in user_input:
-                user_input[CONF_SCHOOL_ID] = int(user_input[CONF_SCHOOL_ID])
+                _LOGGER.debug("School ID from dropdown: %s (type: %s)", user_input[CONF_SCHOOL_ID], type(user_input[CONF_SCHOOL_ID]))
+                # user_input[CONF_SCHOOL_ID] is already the correct value from SelectSelector
+                pass
             else:
                 school_raw = user_input[CONF_SCHOOL_NAME].strip()
                 if school_raw.isdigit():
