@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.12] - 2025-09-27
+
+### Improved
+- Properly implemented asyncio.create_task for all MainThread operations
+- Fixed MainThread blocking in Config Flow, authentication, and data fetching
+- Enhanced performance by running all network operations in background tasks
+- Improved UI responsiveness during integration setup and data updates
+
 ## [0.1.11] - 2025-09-27
 
 ### Fixed
