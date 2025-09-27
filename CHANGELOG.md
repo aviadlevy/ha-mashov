@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.9] - 2025-09-27
+
+### Improved
+- Optimized MainThread usage to prevent UI blocking
+- Added asyncio.create_task for parallel execution
+- Improved performance by running operations in separate tasks
+- Enhanced responsiveness during data fetching and school catalog loading
+
 ## [0.1.8] - 2025-09-27
 
 ### Fixed

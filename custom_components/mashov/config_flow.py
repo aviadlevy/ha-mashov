@@ -32,22 +32,33 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._school_choices = None
         self._catalog_options = None  # list of {"value": semel, "label": display}
 
+    async def _load_schools_catalog(self):
+        """Load schools catalog in a separate task to avoid blocking MainThread"""
+        tmp = MashovClient(
+            school_id="placeholder",
+            year=None,
+            username="",
+            password="",
+            api_base=DEFAULT_API_BASE,
+        )
+        try:
+            await tmp.async_open_session()
+            catalog = await tmp.async_fetch_schools_catalog(None)
+            return catalog
+        finally:
+            await tmp.async_close()
+
     async def async_step_user(self, user_input=None) -> FlowResult:
         errors = {}
 
         # Try to load catalog for dropdown (no login required)
         if self._catalog_options is None:
             try:
-                tmp = MashovClient(
-                    school_id="placeholder",
-                    year=None,
-                    username="",
-                    password="",
-                    api_base=DEFAULT_API_BASE,
-                )
-                await tmp.async_open_session()
-                catalog = await tmp.async_fetch_schools_catalog(None)
-                await tmp.async_close()
+                # Run catalog loading in a separate task to avoid blocking MainThread
+                import asyncio
+                catalog_task = asyncio.create_task(self._load_schools_catalog())
+                catalog = await catalog_task
+                
                 if catalog and len(catalog) > 0:
                     # Sort by name for better autocomplete
                     sorted_catalog = sorted(catalog, key=lambda x: (x.get('name', '').lower(), x.get('city', '').lower()))

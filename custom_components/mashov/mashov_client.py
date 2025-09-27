@@ -358,7 +358,9 @@ class MashovClient:
             }
 
         _LOGGER.debug("Fetching data for all students in parallel")
-        results = await asyncio.gather(*(fetch_for_student(s) for s in self._students))
+        # Create tasks for parallel execution to avoid blocking MainThread
+        tasks = [asyncio.create_task(fetch_for_student(s)) for s in self._students]
+        results = await asyncio.gather(*tasks)
         by_slug = { self._students[i]["slug"]: results[i] for i in range(len(self._students)) }
 
         result = {

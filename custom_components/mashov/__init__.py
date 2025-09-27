@@ -121,7 +121,8 @@ class MashovCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         _LOGGER.debug("Starting data update for coordinator: %s", self.name)
         try:
-            data = await self.client.async_fetch_all()  # now returns data for ALL kids
+            # Run data fetching in a separate task to avoid blocking MainThread
+            data = await asyncio.create_task(self.client.async_fetch_all())
             _LOGGER.debug("Data update completed successfully for %d students", len(data.get("students", [])))
             return data
         except MashovAuthError as exc:
