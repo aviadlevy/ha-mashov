@@ -11,6 +11,13 @@
 ### Fixed
 - TBD
 
+## [0.1.16] - 2025-09-28
+
+### Fixed
+- Fixed SelectSelector value type error - values must be strings
+- Corrected school selection dropdown data type handling
+- Improved school choice processing with proper type conversion
+
 ## [0.1.15] - 2025-09-28
 
 ### Fixed

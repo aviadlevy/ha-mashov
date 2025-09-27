@@ -181,12 +181,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_pick_school(self, user_input=None) -> FlowResult:
         errors = {}
         if user_input is not None:
-            self._cached_user[CONF_SCHOOL_ID] = user_input["selected_school"]
+            # Convert string value back to int
+            self._cached_user[CONF_SCHOOL_ID] = int(user_input["selected_school"])
             self._cached_user[CONF_SCHOOL_NAME] = str(user_input["selected_school"])
             return await self.async_step_user(self._cached_user)
 
-        # Convert choices to SelectSelector format
-        options = [{"value": semel, "label": label} for label, semel in self._school_choices.items()]
+        # Convert choices to SelectSelector format - values must be strings
+        options = [{"value": str(semel), "label": label} for label, semel in self._school_choices.items()]
         
         schema = vol.Schema({
             vol.Required("selected_school"): SelectSelector(
