@@ -59,7 +59,7 @@ data:
 
 ## Installation (HACS)
 
-1. HACS → Integrations → ⋯ → **Custom repositories** → URL: this repo, Category: **Integration**
+1. HACS → Integrations → ⋯ → **Custom repositories** → URL: `https://github.com/NirBY/ha-mashov`, Category: **Integration**
 2. Search for **Mashov** in HACS and install.
 3. Restart Home Assistant.
 4. Settings → Devices & Services → Add Integration → **Mashov**.
