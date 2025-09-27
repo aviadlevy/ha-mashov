@@ -22,6 +22,17 @@
 ### Fixed
 - TBD
 
+## [0.1.6] - 2025-09-27
+
+### Added
+- TBD
+
+### Changed
+- TBD
+
+### Fixed
+- TBD
+
 ## [0.1.5] - 2025-09-27
 
 ### Fixed
