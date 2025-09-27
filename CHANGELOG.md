@@ -11,6 +11,15 @@
 ### Fixed
 - TBD
 
+## [0.1.10] - 2025-09-27
+
+### Fixed
+- Fixed autocomplete error: 'NoneType' object has no attribute 'lower'
+- Fixed session management - keep session open for future use
+- Improved error handling for None values in school catalog
+- Fixed "Unclosed client session" error during authentication
+- Enhanced school catalog sorting with proper None handling
+
 ## [0.1.9] - 2025-09-27
 
 ### Improved

@@ -54,14 +54,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Try to load catalog for dropdown (no login required)
         if self._catalog_options is None:
             try:
-                # Run catalog loading in a separate task to avoid blocking MainThread
-                import asyncio
-                catalog_task = asyncio.create_task(self._load_schools_catalog())
-                catalog = await catalog_task
+                # Load catalog synchronously to avoid MainThread issues
+                catalog = await self._load_schools_catalog()
                 
                 if catalog and len(catalog) > 0:
-                    # Sort by name for better autocomplete
-                    sorted_catalog = sorted(catalog, key=lambda x: (x.get('name', '').lower(), x.get('city', '').lower()))
+                    # Sort by name for better autocomplete - handle None values
+                    sorted_catalog = sorted(catalog, key=lambda x: (
+                        (x.get('name') or '').lower(), 
+                        (x.get('city') or '').lower()
+                    ))
                     self._catalog_options = [
                         {
                             "value": int(it["semel"]),

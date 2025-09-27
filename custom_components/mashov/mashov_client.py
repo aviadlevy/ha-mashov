@@ -303,8 +303,7 @@ class MashovClient:
         self._students = students
         _LOGGER.info("Mashov: found %d student(s): %s", len(students), ", ".join([s["name"] for s in students]))
         
-        # Ensure session is properly closed after initialization
-        await self.async_close()
+        # Keep session open for future use - don't close it here
 
     async def async_fetch_all(self) -> Dict[str, Any]:
         if not self._session:
@@ -358,9 +357,8 @@ class MashovClient:
             }
 
         _LOGGER.debug("Fetching data for all students in parallel")
-        # Create tasks for parallel execution to avoid blocking MainThread
-        tasks = [asyncio.create_task(fetch_for_student(s)) for s in self._students]
-        results = await asyncio.gather(*tasks)
+        # Use asyncio.gather for parallel execution
+        results = await asyncio.gather(*(fetch_for_student(s) for s in self._students))
         by_slug = { self._students[i]["slug"]: results[i] for i in range(len(self._students)) }
 
         result = {
