@@ -64,12 +64,17 @@ class MashovClient:
         self._student_slug: str = _slugify(self._student_display)
 
     async def async_init(self, hass: HomeAssistant):
-        self._session = aiohttp.ClientSession()
+        self._session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=30),
+            connector=aiohttp.TCPConnector(limit=10)
+        )
         await self._async_login_and_select_student()
 
     async def async_close(self):
         if self._session and not self._session.closed:
             await self._session.close()
+            # Wait a bit to ensure cleanup
+            await asyncio.sleep(0.1)
 
     @property
     def student_id(self) -> Optional[int]:
@@ -96,21 +101,26 @@ class MashovClient:
         }
         _LOGGER.debug("Logging in to Mashov (school=%s, year=%s, user=%s)", self.school_id, self.year, self.username)
 
-        async with self._session.post(LOGIN_ENDPOINT, json=payload) as resp:
-            if resp.status in (401, 403):
-                raise MashovAuthError("Invalid credentials or school/year mismatch")
-            if resp.status >= 400:
-                txt = await resp.text()
-                raise MashovError(f"Login failed HTTP {resp.status}: {txt}")
-            try:
-                data = await resp.json(content_type=None)
-            except Exception:
-                data = {}
+        try:
+            async with self._session.post(LOGIN_ENDPOINT, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status in (401, 403):
+                    raise MashovAuthError("Invalid credentials or school/year mismatch")
+                if resp.status >= 400:
+                    txt = await resp.text()
+                    raise MashovError(f"Login failed HTTP {resp.status}: {txt}")
+                try:
+                    data = await resp.json(content_type=None)
+                except Exception:
+                    data = {}
 
-            token = data.get("accessToken") or data.get("token") or resp.headers.get("X-CSRF-Token") or resp.headers.get("authorization")
-            self._headers = {"Accept": "application/json"}
-            if token:
-                self._headers["Authorization"] = token
+                token = data.get("accessToken") or data.get("token") or resp.headers.get("X-CSRF-Token") or resp.headers.get("authorization")
+                self._headers = {"Accept": "application/json"}
+                if token:
+                    self._headers["Authorization"] = token
+        except asyncio.TimeoutError:
+            raise MashovError("Login timeout - Mashov server is not responding")
+        except aiohttp.ClientError as e:
+            raise MashovError(f"Network error during login: {e}")
 
         async with self._session.get(ME_ENDPOINT, headers=self._headers) as resp:
             if resp.status == 401:

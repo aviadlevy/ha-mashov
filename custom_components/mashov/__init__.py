@@ -69,8 +69,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     data = hass.data[DOMAIN].pop(entry.entry_id, None)
-    if data and data.get("unsub_daily"):
-        data["unsub_daily"]()
+    if data:
+        if data.get("unsub_daily"):
+            data["unsub_daily"]()
+        # Close client session properly
+        if data.get("client"):
+            await data["client"].async_close()
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     return unload_ok
 
