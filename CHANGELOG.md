@@ -11,14 +11,27 @@
 ### Fixed
 - TBD
 
+## [0.1.6] - 2025-09-27
+
+### Added
+- TBD
+
+### Changed
+- TBD
+
+### Fixed
+- TBD
+
 ## [0.1.5] - 2025-09-27
 
 ### Fixed
 - Fixed Config Flow schema definition causing 400 Bad Request error
 - Improved school selection dropdown handling with proper error handling
-- Limited school catalog to 500 items to prevent UI performance issues
+- Limited school catalog to 200 items for better autocomplete performance
 - Added fallback to text input if dropdown creation fails
 - Enhanced error logging for better troubleshooting of Config Flow issues
+- Improved autocomplete functionality with sorted school list
+- Optimized dropdown performance with sort=True option
 
 ## [0.1.4] - 2025-09-27
 

@@ -10,13 +10,14 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 
 ---
 
-## ✨ What's new in v0.1.3
+## ✨ What's new in v0.1.5
 - **Multiple kids automatically** – the integration fetches **all children** linked to the account and creates **4 sensors per child**.
 - **No "Year" field** – the current **Israeli school year** is detected automatically (Sep–Dec ⇒ `year + 1`, otherwise `year`).
-- **School picker with autocomplete** – select your school from a **dropdown** (type to filter). If the catalog can't be loaded, a text box fallback appears and we auto-resolve the Semel.
+- **Fast school picker with autocomplete** – select your school from a **dropdown** with optimized performance (type to filter). If the catalog can't be loaded, a text box fallback appears and we auto-resolve the Semel.
 - **API base override (Options)** – for environments that use a different host (e.g., mobile API).
 - **Enhanced logging** – comprehensive debug logs for troubleshooting authentication and data fetching issues.
 - **Improved error handling** – better timeout and connection error handling with detailed error messages.
+- **Fixed Config Flow issues** – resolved 400 Bad Request errors and improved school selection performance.
 
 ### ⚠️ Breaking changes
 - **`student_name` was removed** from config. The integration now discovers **all** kids; sensors are grouped and named by child.
@@ -51,7 +52,7 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 
 1. **Add Integration → Mashov**.
 2. Enter **username / password**.
-3. Pick your **school** from the dropdown (type to filter). If the list doesn’t load, a text field appears; type the **school name in Hebrew** or the **Semel** and we’ll resolve it.
+3. Pick your **school** from the dropdown with **fast autocomplete** (type to filter). If the list doesn't load, a text field appears; type the **school name in Hebrew** or the **Semel** and we'll resolve it.
 4. Done — sensors for **each child** will be created.
 
 ### Options
@@ -95,6 +96,7 @@ data:
 - **Different host**: open **Options → API base** and paste the base prefix you see in your browser DevTools Network tab (up to `/api/`).  
   Common defaults: `https://web.mashov.info/api/`, sometimes `https://mobileapi.mashov.info/api/`.
 - **No schools in dropdown**: temporary catalog issue — the flow falls back to text; enter the name or Semel to resolve.
+- **Autocomplete not working**: the dropdown is limited to 200 schools for performance; try typing the school name to filter the list.
 - **Multiple kids missing**: ensure your account actually lists multiple students in Mashov. Check HA logs for `custom_components.mashov` debug entries.
 - **Session errors**: if you see "Unclosed client session" errors, restart Home Assistant to clear any stale connections.
 

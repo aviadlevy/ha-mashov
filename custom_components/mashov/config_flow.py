@@ -46,17 +46,19 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 catalog = await tmp.async_fetch_schools_catalog(None)
                 await tmp.async_close()
                 if catalog and len(catalog) > 0:
+                    # Sort by name for better autocomplete
+                    sorted_catalog = sorted(catalog, key=lambda x: (x.get('name', '').lower(), x.get('city', '').lower()))
                     self._catalog_options = [
                         {
                             "value": int(it["semel"]),
                             "label": f"{it.get('name','?')} – {it.get('city','?')} ({it['semel']})",
                         }
-                        for it in catalog
+                        for it in sorted_catalog
                         if it.get("semel") and it.get("name")
                     ]
-                    # Limit to first 500 schools to avoid UI issues
-                    if len(self._catalog_options) > 500:
-                        self._catalog_options = self._catalog_options[:500]
+                    # Limit to first 200 schools for better autocomplete performance
+                    if len(self._catalog_options) > 200:
+                        self._catalog_options = self._catalog_options[:200]
             except Exception as e:
                 _LOGGER.debug("Failed to load schools catalog: %s", e)
                 self._catalog_options = []
@@ -70,8 +72,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_SCHOOL_ID): SelectSelector(
                         SelectSelectorConfig(
                             options=self._catalog_options,
-                            mode=SelectSelectorMode.DROPDOWN,  # supports type-ahead filtering
+                            mode=SelectSelectorMode.DROPDOWN,
                             multiple=False,
+                            sort=True,
                         )
                     ),
                 })
