@@ -11,6 +11,23 @@
 ### Fixed
 - TBD
 
+## [0.1.17] - 2025-01-28
+
+### Fixed
+- Fixed "Cannot reach Mashov" authentication error
+- Updated API version from 3.20210425 to 4.20250101 for compatibility with latest Mashov API
+- Enhanced authentication token detection with multiple fallback methods
+- Added comprehensive retry mechanism (3 attempts with 2-second delays) for login failures
+- Improved error handling and logging throughout authentication process
+- Enhanced session timeout settings (60 seconds total, 30 seconds connect)
+- Better handling of network timeouts and connection issues
+- Improved error messages in Hebrew translations for better user experience
+
+### Changed
+- Enhanced device identification parameters for better API compatibility
+- Improved authorization header handling with multiple token formats
+- Better session management with proper connection limits
+
 ## [0.1.16] - 2025-09-28
 
 ### Fixed

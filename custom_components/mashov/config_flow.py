@@ -167,9 +167,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Run authentication in background task
                 auth_task = asyncio.create_task(client.async_init(self.hass))
                 await auth_task
-            except MashovAuthError:
+            except MashovAuthError as e:
+                _LOGGER.error("Authentication error: %s", e)
                 errors["base"] = "auth"
-            except Exception:
+            except MashovError as e:
+                _LOGGER.error("Mashov error: %s", e)
+                errors["base"] = "cannot_connect"
+            except Exception as e:
+                _LOGGER.error("Unexpected error during authentication: %s", e)
                 errors["base"] = "cannot_connect"
             else:
                 await client.async_close()

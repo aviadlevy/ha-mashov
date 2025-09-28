@@ -35,8 +35,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
     _LOGGER.debug("Initializing Mashov client for school %s", data[CONF_SCHOOL_ID])
     # Run client initialization in background task
-    init_task = asyncio.create_task(client.async_init(hass))
-    await init_task
+    try:
+        init_task = asyncio.create_task(client.async_init(hass))
+        await init_task
+    except Exception as e:
+        _LOGGER.error("Failed to initialize Mashov client: %s", e)
+        await client.async_close()
+        raise
 
     coordinator = MashovCoordinator(hass, client, entry)
     _LOGGER.debug("Starting first data refresh")

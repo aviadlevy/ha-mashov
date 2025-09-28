@@ -81,8 +81,8 @@ class MashovClient:
         if self._session is None or self._session.closed:
             _LOGGER.debug("Opening new Mashov client session")
             self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30),
-                connector=aiohttp.TCPConnector(limit=10)
+                timeout=aiohttp.ClientTimeout(total=60, connect=30),
+                connector=aiohttp.TCPConnector(limit=10, limit_per_host=5)
             )
 
     async def async_close(self):
@@ -201,6 +201,10 @@ class MashovClient:
         _LOGGER.debug("Initializing Mashov client for school=%s, year=%s, user=%s", 
                      self.school_id or self.school_name, self.year, self.username)
         await self.async_open_session()
+        
+        # Add retry mechanism for login
+        max_retries = 3
+        retry_delay = 2
 
         if self.school_id is None and self.school_name:
             _LOGGER.debug("Resolving school name '%s' to semel", self.school_name)
@@ -220,14 +224,14 @@ class MashovClient:
             "password": self.password,
             "IsBiometric": False,
             "appName": "info.mashov.students",
-            "apiVersion": "3.20210425",
-            "appVersion": "3.20210425",
-            "appBuild": "3.20210425",
-            "deviceUuid": "chrome",
+            "apiVersion": "4.20250101",
+            "appVersion": "4.20250101", 
+            "appBuild": "4.20250101",
+            "deviceUuid": "chrome-ha",
             "devicePlatform": "chrome",
-            "deviceManufacturer": "ha",
+            "deviceManufacturer": "homeassistant",
             "deviceModel": "integration",
-            "deviceVersion": "0.0.1",
+            "deviceVersion": "1.0.0",
         }
         headers = {
             "Accept": "application/json, text/plain, */*",
@@ -236,53 +240,109 @@ class MashovClient:
             "Referer": "https://web.mashov.info/students/login",
             "User-Agent": "Mozilla/5.0 (HomeAssistant) Mashov/0.5",
         }
-        _LOGGER.debug("Logging in (semel=%s, year=%s, user=%s)", self.school_id, self.year, self.username)
-        _LOGGER.debug("Login endpoint: %s", LOGIN_ENDPOINT)
-        try:
-            async with self._session.post(LOGIN_ENDPOINT, json=payload, headers=headers) as resp:
-                _LOGGER.debug("Login response status: %s", resp.status)
-                if resp.status in (401, 403):
-                    _LOGGER.error("Authentication failed for school=%s, year=%s, user=%s", self.school_id, self.year, self.username)
-                    raise MashovAuthError("Authentication failed. Please check your credentials, school ID, and year.")
-                if resp.status >= 400:
-                    txt = await resp.text()
-                    _LOGGER.error("Login failed HTTP %s: %s", resp.status, txt)
-                    raise MashovError(f"Login failed HTTP {resp.status}: {txt}")
-                try:
-                    data = await resp.json(content_type=None)
-                    _LOGGER.debug("Login response data keys: %s", list(data.keys()) if isinstance(data, dict) else "not a dict")
-                except Exception as e:
-                    _LOGGER.error("Failed to parse login response: %s", e)
-                    data = {}
-                token = data.get("accessToken") or data.get("token") or resp.headers.get("X-CSRF-Token") or resp.headers.get("authorization")
-                self._headers = {"Accept": "application/json"}
-                if token:
-                    self._headers["Authorization"] = token
-                    _LOGGER.debug("Authentication token received")
-                else:
-                    _LOGGER.warning("No authentication token received")
-        except asyncio.TimeoutError:
-            _LOGGER.error("Login timeout - Mashov server is not responding")
-            raise MashovError("Login timeout - Mashov server is not responding")
-        except aiohttp.ClientError as e:
-            _LOGGER.error("Network error during login: %s", e)
-            raise MashovError(f"Network error during login: {e}")
+        # Try login with retry mechanism
+        last_error = None
+        for attempt in range(max_retries):
+            _LOGGER.debug("Login attempt %d/%d (semel=%s, year=%s, user=%s)", 
+                         attempt + 1, max_retries, self.school_id, self.year, self.username)
+            _LOGGER.debug("Login endpoint: %s", LOGIN_ENDPOINT)
+            try:
+                async with self._session.post(LOGIN_ENDPOINT, json=payload, headers=headers) as resp:
+                    _LOGGER.debug("Login response status: %s", resp.status)
+                    _LOGGER.debug("Login response headers: %s", dict(resp.headers))
+                    
+                    if resp.status in (401, 403):
+                        txt = await resp.text()
+                        _LOGGER.error("Authentication failed for school=%s, year=%s, user=%s. Response: %s", 
+                                     self.school_id, self.year, self.username, txt)
+                        raise MashovAuthError("Authentication failed. Please check your credentials, school ID, and year.")
+                    if resp.status >= 400:
+                        txt = await resp.text()
+                        _LOGGER.error("Login failed HTTP %s: %s", resp.status, txt)
+                        if attempt < max_retries - 1:
+                            _LOGGER.debug("Retrying login in %d seconds...", retry_delay)
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        raise MashovError(f"Login failed HTTP {resp.status}: {txt}")
+                    
+                    # Try to parse response
+                    try:
+                        data = await resp.json(content_type=None)
+                        _LOGGER.debug("Login response data: %s", data)
+                    except Exception as e:
+                        _LOGGER.debug("Failed to parse login response as JSON: %s", e)
+                        txt = await resp.text()
+                        _LOGGER.debug("Login response text: %s", txt)
+                        data = {}
+                    
+                    # Look for token in multiple places
+                    token = (data.get("accessToken") or data.get("token") or data.get("access_token") or 
+                            resp.headers.get("X-CSRF-Token") or resp.headers.get("authorization") or
+                            resp.headers.get("Authorization") or resp.headers.get("x-access-token"))
+                    
+                    self._headers = {"Accept": "application/json"}
+                    if token:
+                        # Try different authorization formats
+                        if token.startswith("Bearer "):
+                            self._headers["Authorization"] = token
+                        else:
+                            self._headers["Authorization"] = f"Bearer {token}"
+                        _LOGGER.debug("Authentication token received and set")
+                        break  # Success, exit retry loop
+                    else:
+                        _LOGGER.warning("No authentication token received. Available data keys: %s, headers: %s", 
+                                       list(data.keys()) if isinstance(data, dict) else "not a dict",
+                                       list(resp.headers.keys()))
+                        if attempt < max_retries - 1:
+                            _LOGGER.debug("Retrying login in %d seconds...", retry_delay)
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        raise MashovError("No authentication token received after multiple attempts")
+                        
+            except asyncio.TimeoutError as e:
+                last_error = e
+                _LOGGER.warning("Login timeout on attempt %d/%d", attempt + 1, max_retries)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    continue
+                _LOGGER.error("Login timeout - Mashov server is not responding")
+                raise MashovError("Login timeout - Mashov server is not responding")
+            except aiohttp.ClientError as e:
+                last_error = e
+                _LOGGER.warning("Network error on attempt %d/%d: %s", attempt + 1, max_retries, e)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    continue
+                _LOGGER.error("Network error during login: %s", e)
+                raise MashovError(f"Network error during login: {e}")
 
         # Fetch ALL students (kids)
         _LOGGER.debug("Fetching students from: %s", ME_ENDPOINT)
+        _LOGGER.debug("Using headers: %s", self._headers)
         try:
             async with self._session.get(ME_ENDPOINT, headers=self._headers) as resp:
                 _LOGGER.debug("Students endpoint response status: %s", resp.status)
+                _LOGGER.debug("Students endpoint response headers: %s", dict(resp.headers))
+                
                 if resp.status == 401:
-                    _LOGGER.error("Not authorized after login")
+                    txt = await resp.text()
+                    _LOGGER.error("Not authorized after login. Response: %s", txt)
                     raise MashovAuthError("Not authorized after login")
                 if resp.status >= 400:
                     txt = await resp.text()
                     _LOGGER.error("Failed to query students HTTP %s: %s", resp.status, txt)
                     raise MashovError(f"Failed to query students: HTTP {resp.status}: {txt}")
-                arr = await resp.json()
+                
+                try:
+                    arr = await resp.json()
+                    _LOGGER.debug("Students response data: %s", arr)
+                except Exception as e:
+                    txt = await resp.text()
+                    _LOGGER.error("Failed to parse students response as JSON: %s. Text: %s", e, txt)
+                    raise MashovError(f"Failed to parse students response: {e}")
+                
                 if not isinstance(arr, list) or not arr:
-                    _LOGGER.error("No students found for account")
+                    _LOGGER.error("No students found for account. Response type: %s, data: %s", type(arr), arr)
                     raise MashovError("No students found for account")
                 _LOGGER.debug("Found %d students for account", len(arr))
         except asyncio.TimeoutError:
