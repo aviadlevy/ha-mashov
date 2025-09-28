@@ -42,9 +42,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             if os.path.exists(alt_version_file):
                 version_file = alt_version_file
         
-        with open(version_file, "r") as f:
-            version = f.read().strip()
-        _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
+        # If still not found, try reading from manifest.json
+        if not os.path.exists(version_file):
+            manifest_file = os.path.join(current_dir, "manifest.json")
+            if os.path.exists(manifest_file):
+                import json
+                with open(manifest_file, "r") as f:
+                    manifest = json.load(f)
+                    version = manifest.get("version", "unknown")
+                    _LOGGER.info("Setting up Mashov integration v%s for entry: %s (from manifest)", version, entry.title)
+            else:
+                _LOGGER.warning("Could not find version file or manifest.json")
+                _LOGGER.info("Setting up Mashov integration for entry: %s", entry.title)
+        else:
+            with open(version_file, "r") as f:
+                version = f.read().strip()
+            _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
     except Exception as e:
         _LOGGER.warning("Could not read version file: %s", e)
         _LOGGER.info("Setting up Mashov integration for entry: %s", entry.title)

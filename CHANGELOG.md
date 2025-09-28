@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.31] - 2025-09-28
+
+### Fixed
+- Fixed authentication logic to properly handle accessToken as dictionary
+- Improved version detection with fallback to manifest.json
+- Enhanced error handling for authentication flow
+- Resolved 'dict' object has no attribute 'startswith' error
+
 ## [0.1.30] - 2025-09-28
 
 ### Changed

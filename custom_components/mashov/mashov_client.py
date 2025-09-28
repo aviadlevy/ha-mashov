@@ -309,7 +309,9 @@ class MashovClient:
                         elif isinstance(access_token, str):
                             _LOGGER.info("accessToken is string, length: %d", len(access_token))
                     
-                    if data.get("accessToken") or data.get("credential"):
+                    # Check for authentication success - either accessToken or credential
+                    has_auth = bool(data.get("accessToken")) or bool(data.get("credential"))
+                    if has_auth:
                         _LOGGER.info("=== AUTHENTICATION SUCCESSFUL ===")
                         _LOGGER.info("Authentication successful - accessToken/credential received")
                         # Store the full response data for later use
