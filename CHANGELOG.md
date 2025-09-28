@@ -11,6 +11,13 @@
 ### Fixed
 - TBD
 
+## [0.1.18] - 2025-01-28
+
+### Fixed
+- Fixed "cannot access local variable 'asyncio'" error in config flow
+- Added proper asyncio import at module level to prevent variable scope issues
+- Resolved authentication flow crash during school selection process
+
 ## [0.1.17] - 2025-01-28
 
 ### Fixed

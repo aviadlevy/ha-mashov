@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import voluptuous as vol
 from homeassistant import config_entries
@@ -55,7 +56,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._catalog_options is None:
             try:
                 # Load catalog in background task to avoid blocking MainThread
-                import asyncio
                 catalog_task = asyncio.create_task(self._load_schools_catalog())
                 catalog = await catalog_task
                 
