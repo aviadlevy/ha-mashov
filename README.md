@@ -10,7 +10,14 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 
 ---
 
-## ✨ What's new in v0.1.5
+## ✨ What's new in v0.1.31
+- **Fixed authentication errors** – resolved `'dict' object has no attribute 'startswith'` error preventing login
+- **Improved version detection** – added fallback to read version from manifest.json if VERSION file not found
+- **Enhanced error handling** – better authentication flow and CSRF token management
+- **Stability improvements** – more robust login process with detailed logging for debugging
+- **Hub display enhancement** – shows both school name and semel number for better identification
+
+## ✨ Previous features (v0.1.5+)
 - **Multiple kids automatically** – the integration fetches **all children** linked to the account and creates **4 sensors per child**.
 - **No "Year" field** – the current **Israeli school year** is detected automatically (Sep–Dec ⇒ `year + 1`, otherwise `year`).
 - **Fast school picker with autocomplete** – select your school from a **dropdown** with optimized performance (type to filter). If the catalog can't be loaded, a text box fallback appears and we auto-resolve the Semel.
