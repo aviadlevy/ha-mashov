@@ -70,7 +70,7 @@ class MashovClient:
     def _resolve_endpoints(self):
         global LOGIN_ENDPOINT, ME_ENDPOINT, ENDPOINTS
         LOGIN_ENDPOINT = self._api_base + "login"
-        ME_ENDPOINT    = self._api_base + "students"
+        ME_ENDPOINT    = self._api_base + "me"
         ENDPOINTS = {
             "timetable_today": self._api_base + "students/{student_id}/timetable/day?date={date}&year={year}",
             "weekly_plan":     self._api_base + "students/{student_id}/timetable/week?date={date}&year={year}",

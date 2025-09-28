@@ -11,6 +11,18 @@
 ### Fixed
 - TBD
 
+## [0.1.23] - 2025-01-28
+
+### Fixed
+- Fixed version logging path to correctly read VERSION file
+- Changed students endpoint from /api/students to /api/me
+- Resolved 403 "Internal error" when fetching student data
+- Improved version detection for debugging purposes
+
+### Added
+- Better error handling for version file reading
+- More robust path resolution for VERSION file
+
 ## [0.1.22] - 2025-01-28
 
 ### Fixed

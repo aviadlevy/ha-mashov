@@ -22,7 +22,10 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Print version info
     try:
-        with open("/config/custom_components/mashov/VERSION", "r") as f:
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        version_file = os.path.join(current_dir, "..", "..", "..", "VERSION")
+        with open(version_file, "r") as f:
             version = f.read().strip()
     except:
         version = "unknown"
