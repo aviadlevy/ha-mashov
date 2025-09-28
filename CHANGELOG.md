@@ -11,6 +11,12 @@
 ### Fixed
 - TBD
 
+## [0.1.26] - 2025-09-28
+
+### Fixed
+- Fixed version file path resolution for proper version logging
+- Added debug logging to help troubleshoot version file location
+
 ## [0.1.25] - 2025-09-28
 
 ### Fixed
