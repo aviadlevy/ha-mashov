@@ -11,6 +11,19 @@
 ### Fixed
 - TBD
 
+## [0.1.24] - 2025-01-28
+
+### Fixed
+- Fixed students data extraction by using children data from authentication response
+- Removed dependency on /api/me and /api/students endpoints that were returning errors
+- Students are now extracted directly from login response children data
+- Resolved 404/403 errors when fetching student information
+
+### Added
+- Better student data parsing from authentication response
+- Enhanced logging for student extraction process
+- Support for child GUID-based student identification
+
 ## [0.1.23] - 2025-01-28
 
 ### Fixed

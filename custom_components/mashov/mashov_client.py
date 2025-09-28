@@ -331,52 +331,52 @@ class MashovClient:
                 _LOGGER.error("Network error during login: %s", e)
                 raise MashovError(f"Network error during login: {e}")
 
-        # Fetch ALL students (kids)
-        _LOGGER.info("=== FETCHING STUDENTS ===")
-        _LOGGER.info("Fetching students from: %s", ME_ENDPOINT)
-        _LOGGER.info("Using headers: %s", self._headers)
-        _LOGGER.info("CSRF token in headers: %s", self._headers.get("X-Csrf-Token", "NOT FOUND"))
-        try:
-            async with self._session.get(ME_ENDPOINT, headers=self._headers) as resp:
-                _LOGGER.info("Students endpoint response status: %s", resp.status)
-                _LOGGER.info("Students endpoint response headers: %s", dict(resp.headers))
-                
-                if resp.status == 401:
-                    txt = await resp.text()
-                    _LOGGER.error("Not authorized after login. Response: %s", txt)
-                    raise MashovAuthError("Not authorized after login")
-                if resp.status >= 400:
-                    txt = await resp.text()
-                    _LOGGER.error("Failed to query students HTTP %s: %s", resp.status, txt)
-                    raise MashovError(f"Failed to query students: HTTP {resp.status}: {txt}")
-                
-                try:
-                    arr = await resp.json()
-                    _LOGGER.info("Students response data: %s", arr)
-                except Exception as e:
-                    txt = await resp.text()
-                    _LOGGER.error("Failed to parse students response as JSON: %s. Text: %s", e, txt)
-                    raise MashovError(f"Failed to parse students response: {e}")
-                
-                if not isinstance(arr, list) or not arr:
-                    _LOGGER.error("No students found for account. Response type: %s, data: %s", type(arr), arr)
-                    raise MashovError("No students found for account")
-                _LOGGER.info("Found %d students for account", len(arr))
-        except asyncio.TimeoutError:
-            _LOGGER.error("Timeout fetching students from Mashov")
-            raise MashovError("Timeout fetching students from Mashov")
-        except aiohttp.ClientError as e:
-            _LOGGER.error("Network error fetching students: %s", e)
-            raise MashovError(f"Network error fetching students: {e}")
-
+        # Extract students from authentication response
+        _LOGGER.info("=== EXTRACTING STUDENTS FROM AUTH RESPONSE ===")
+        
+        # Get children from the authentication response
+        children = self._auth_data.get("accessToken", {}).get("children", [])
+        _LOGGER.info("Found %d children in auth response", len(children))
+        
+        if not children:
+            _LOGGER.error("No children found in authentication response")
+            raise MashovError("No children found in authentication response")
+        
         students: List[Dict[str, Any]] = []
-        for s in arr:
-            name = s.get("displayName") or s.get("name") or s.get("fullName") or ""
-            sid = s.get("id") or s.get("studentId") or s.get("pk") or s.get("childPk")
-            if not sid:
-                _LOGGER.warning("Student without ID found: %s", s)
+        for child in children:
+            # Extract child information
+            child_guid = child.get("childGuid")
+            family_name = child.get("familyName", "")
+            private_name = child.get("privateName", "")
+            class_code = child.get("classCode", "")
+            class_num = child.get("classNum", "")
+            
+            # Create display name
+            name = f"{private_name} {family_name}"
+            if class_code and class_num:
+                name += f" ({class_code}{class_num})"
+            
+            # Use childGuid as ID (convert to int if possible, otherwise use hash)
+            if child_guid:
+                try:
+                    # Try to extract numeric part from GUID
+                    sid = int(child_guid.replace("-", "")[:8], 16)
+                except:
+                    # Fallback to hash of GUID
+                    sid = abs(hash(child_guid)) % 1000000
+            else:
+                _LOGGER.warning("Child without GUID found: %s", child)
                 continue
-            students.append({"id": int(sid), "name": name, "slug": _slugify(name) or f"student_{sid}"})
+                
+            students.append({
+                "id": sid, 
+                "name": name, 
+                "slug": _slugify(name) or f"student_{sid}",
+                "child_guid": child_guid,
+                "class_code": class_code,
+                "class_num": class_num
+            })
+            
         self._students = students
         _LOGGER.info("=== STUDENTS PROCESSING COMPLETE ===")
         _LOGGER.info("Mashov: found %d student(s): %s", len(students), ", ".join([s["name"] for s in students]))
