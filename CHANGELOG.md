@@ -11,6 +11,17 @@
 ### Fixed
 - TBD
 
+## [0.1.27] - 2025-09-28
+
+### Fixed
+- Fixed asyncio.create_task usage in config_flow that was causing authentication errors
+- Enhanced version file debugging to help troubleshoot version logging issues
+- Improved error handling in configuration flow
+
+### Changed
+- Simplified async task handling in config_flow for better compatibility
+- Added more detailed debug logging for version file resolution
+
 ## [0.1.26] - 2025-09-28
 
 ### Fixed

@@ -55,9 +55,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Try to load catalog for dropdown (no login required)
         if self._catalog_options is None:
             try:
-                # Load catalog in background task to avoid blocking MainThread
-                catalog_task = asyncio.create_task(self._load_schools_catalog())
-                catalog = await catalog_task
+                # Load catalog directly
+                catalog = await self._load_schools_catalog()
                 
                 if catalog and len(catalog) > 0:
                     # Sort by name for better autocomplete - handle None values
@@ -164,9 +163,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 password=user_input[CONF_PASSWORD],
             )
             try:
-                # Run authentication in background task
-                auth_task = asyncio.create_task(client.async_init(self.hass))
-                await auth_task
+                # Run authentication directly
+                await client.async_init(self.hass)
             except MashovAuthError as e:
                 _LOGGER.error("Authentication error: %s", e)
                 errors["base"] = "auth"

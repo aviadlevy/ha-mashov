@@ -76,6 +76,9 @@ class MashovClient:
             "weekly_plan":     self._api_base + "students/{student_id}/timetable/week?date={date}&year={year}",
             "homework":        self._api_base + "students/{student_id}/homework?from={start}&to={end}&year={year}",
             "behavior":        self._api_base + "students/{student_id}/behaviour?from={start}&to={end}&year={year}",
+            # Alternative endpoints using groups
+            "timetable_group": self._api_base + "groups/{group_id}/timetable/day?date={date}&year={year}",
+            "weekly_group":    self._api_base + "groups/{group_id}/timetable/week?date={date}&year={year}",
         }
 
     async def async_open_session(self) -> None:
@@ -350,6 +353,7 @@ class MashovClient:
             private_name = child.get("privateName", "")
             class_code = child.get("classCode", "")
             class_num = child.get("classNum", "")
+            groups = child.get("groups", [])
             
             # Create display name
             name = f"{private_name} {family_name}"
@@ -361,13 +365,16 @@ class MashovClient:
                 _LOGGER.warning("Child without GUID found: %s", child)
                 continue
                 
+            _LOGGER.info("Student %s has groups: %s", name, groups)
+                
             students.append({
                 "id": child_guid,  # Use childGuid directly as ID
                 "name": name, 
                 "slug": _slugify(name) or f"student_{child_guid}",
                 "child_guid": child_guid,
                 "class_code": class_code,
-                "class_num": class_num
+                "class_num": class_num,
+                "groups": groups
             })
             
         self._students = students
@@ -396,6 +403,38 @@ class MashovClient:
 
         async def fetch_for_student(stu):
             sid = stu["id"]
+            groups = stu.get("groups", [])
+            
+            # Try to get timetable data from groups if available
+            timetable_data = []
+            weekly_data = []
+            
+            if groups:
+                _LOGGER.info("Trying to fetch timetable from groups for student %s: %s", sid, groups)
+                for group_id in groups[:3]:  # Try first 3 groups
+                    try:
+                        group_timetable_url = ENDPOINTS["timetable_group"].format(group_id=group_id, date=day_str, year=self.year)
+                        group_weekly_url = ENDPOINTS["weekly_group"].format(group_id=group_id, date=day_str, year=self.year)
+                        
+                        async with self._session.get(group_timetable_url, headers=self._headers) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                timetable_data.extend(data if isinstance(data, list) else [data])
+                                _LOGGER.info("Got timetable data from group %s for student %s", group_id, sid)
+                                break
+                    except Exception as e:
+                        _LOGGER.debug("Failed to get timetable from group %s: %s", group_id, e)
+                        
+                    try:
+                        async with self._session.get(group_weekly_url, headers=self._headers) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                weekly_data.extend(data if isinstance(data, list) else [data])
+                                _LOGGER.info("Got weekly data from group %s for student %s", group_id, sid)
+                                break
+                    except Exception as e:
+                        _LOGGER.debug("Failed to get weekly data from group %s: %s", group_id, e)
+            
             urls = {
                 "timetable_today": ENDPOINTS["timetable_today"].format(student_id=sid, date=day_str, year=self.year),
                 "weekly_plan":     ENDPOINTS["weekly_plan"].format(student_id=sid, date=day_str, year=self.year),

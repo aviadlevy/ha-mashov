@@ -28,6 +28,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         version_file = os.path.join(current_dir, "..", "..", "VERSION")
         version_file = os.path.abspath(version_file)  # Get absolute path
         _LOGGER.debug("Looking for version file at: %s", version_file)
+        _LOGGER.debug("Current directory: %s", current_dir)
+        _LOGGER.debug("Version file path: %s", version_file)
+        _LOGGER.debug("Version file exists: %s", os.path.exists(version_file))
         with open(version_file, "r") as f:
             version = f.read().strip()
         _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
