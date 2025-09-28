@@ -20,7 +20,13 @@ from .mashov_client import MashovClient, MashovAuthError, MashovError
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    _LOGGER.info("Setting up Mashov integration for entry: %s", entry.title)
+    # Print version info
+    try:
+        with open("/config/custom_components/mashov/VERSION", "r") as f:
+            version = f.read().strip()
+    except:
+        version = "unknown"
+    _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
     hass.data.setdefault(DOMAIN, {})
 
     data = entry.data

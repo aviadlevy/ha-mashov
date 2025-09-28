@@ -11,6 +11,24 @@
 ### Fixed
 - TBD
 
+## [0.1.21] - 2025-01-28
+
+### Added
+- Enhanced debug logging throughout authentication process
+- Version information logging on integration startup
+- Detailed step-by-step authentication flow logging
+- Comprehensive error reporting with full response data
+- Better visibility into login attempts and responses
+
+### Changed
+- Upgraded logging levels from DEBUG to INFO for critical authentication steps
+- Enhanced error messages with more context and data
+- Improved authentication flow visibility for troubleshooting
+
+### Fixed
+- Better debugging capabilities for authentication issues
+- More detailed logging for failed login attempts
+
 ## [0.1.20] - 2025-01-28
 
 ### Fixed
