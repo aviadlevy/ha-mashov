@@ -300,6 +300,15 @@ class MashovClient:
                     _LOGGER.info("Has accessToken: %s", bool(data.get("accessToken")))
                     _LOGGER.info("Has credential: %s", bool(data.get("credential")))
                     
+                    # Log the type of accessToken to help debug
+                    access_token = data.get("accessToken")
+                    if access_token:
+                        _LOGGER.info("accessToken type: %s", type(access_token))
+                        if isinstance(access_token, dict):
+                            _LOGGER.info("accessToken is dict with keys: %s", list(access_token.keys()))
+                        elif isinstance(access_token, str):
+                            _LOGGER.info("accessToken is string, length: %d", len(access_token))
+                    
                     if data.get("accessToken") or data.get("credential"):
                         _LOGGER.info("=== AUTHENTICATION SUCCESSFUL ===")
                         _LOGGER.info("Authentication successful - accessToken/credential received")
@@ -311,6 +320,7 @@ class MashovClient:
                         _LOGGER.error("No authentication data received. Available data keys: %s, headers: %s", 
                                        list(data.keys()) if isinstance(data, dict) else "not a dict",
                                        list(resp.headers.keys()))
+                        _LOGGER.error("Full response data: %s", data)
                         if attempt < max_retries - 1:
                             _LOGGER.info("Retrying login in %d seconds...", retry_delay)
                             await asyncio.sleep(retry_delay)

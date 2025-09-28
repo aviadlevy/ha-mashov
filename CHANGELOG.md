@@ -11,6 +11,17 @@
 ### Fixed
 - TBD
 
+## [0.1.28] - 2025-09-28
+
+### Added
+- Enhanced debugging logs for authentication token type checking
+- Added detailed logging for accessToken structure analysis
+- Improved error logging with full response data for troubleshooting
+
+### Fixed
+- Enhanced version file path resolution with alternative path fallback
+- Added comprehensive debugging information for authentication flow
+
 ## [0.1.27] - 2025-09-28
 
 ### Fixed

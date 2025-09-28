@@ -31,6 +31,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.debug("Current directory: %s", current_dir)
         _LOGGER.debug("Version file path: %s", version_file)
         _LOGGER.debug("Version file exists: %s", os.path.exists(version_file))
+        
+        # Try alternative paths if the first one doesn't work
+        if not os.path.exists(version_file):
+            # Try going up one more level
+            alt_version_file = os.path.join(current_dir, "..", "..", "..", "VERSION")
+            alt_version_file = os.path.abspath(alt_version_file)
+            _LOGGER.debug("Trying alternative version file path: %s", alt_version_file)
+            _LOGGER.debug("Alternative version file exists: %s", os.path.exists(alt_version_file))
+            if os.path.exists(alt_version_file):
+                version_file = alt_version_file
+        
         with open(version_file, "r") as f:
             version = f.read().strip()
         _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
