@@ -284,6 +284,14 @@ class MashovClient:
                     
                     self._headers = {"Accept": "application/json"}
                     
+                    # Extract CSRF token from response headers
+                    csrf_token = resp.headers.get('x-csrf-token') or resp.headers.get('X-Csrf-Token')
+                    if csrf_token:
+                        _LOGGER.info("Found CSRF token: %s", csrf_token)
+                        self._headers["X-Csrf-Token"] = csrf_token
+                    else:
+                        _LOGGER.warning("No CSRF token found in response headers")
+                    
                     # If we have accessToken data (even if it's a dict), we can proceed
                     _LOGGER.info("Checking authentication data...")
                     _LOGGER.info("Has accessToken: %s", bool(data.get("accessToken")))
@@ -327,6 +335,7 @@ class MashovClient:
         _LOGGER.info("=== FETCHING STUDENTS ===")
         _LOGGER.info("Fetching students from: %s", ME_ENDPOINT)
         _LOGGER.info("Using headers: %s", self._headers)
+        _LOGGER.info("CSRF token in headers: %s", self._headers.get("X-Csrf-Token", "NOT FOUND"))
         try:
             async with self._session.get(ME_ENDPOINT, headers=self._headers) as resp:
                 _LOGGER.info("Students endpoint response status: %s", resp.status)
@@ -379,6 +388,10 @@ class MashovClient:
         _LOGGER.info("=== FETCHING ALL DATA ===")
         if not self._session:
             raise MashovError("Session closed")
+        
+        # Ensure we have CSRF token in headers
+        if "X-Csrf-Token" not in self._headers:
+            _LOGGER.warning("No CSRF token found in headers for data fetching")
 
         today = date.today()
         from_dt = (today - timedelta(days=self.homework_days_back)).isoformat()

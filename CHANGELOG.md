@@ -11,6 +11,19 @@
 ### Fixed
 - TBD
 
+## [0.1.22] - 2025-01-28
+
+### Fixed
+- Fixed CSRF token handling for student data fetching
+- Added proper X-Csrf-Token header extraction from login response
+- Enhanced logging for CSRF token detection and usage
+- Resolved "Failed to query students: HTTP 400: X-Csrf-Token" error
+
+### Added
+- CSRF token validation and logging
+- Better error handling for missing CSRF tokens
+- Enhanced debugging for authentication flow
+
 ## [0.1.21] - 2025-01-28
 
 ### Added
