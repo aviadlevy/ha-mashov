@@ -179,7 +179,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input.pop(CONF_SCHOOL_NAME, None)
                 # Get school name from the cached data or use semel as fallback
                 school_name = self._cached_user.get(CONF_SCHOOL_NAME, user_input[CONF_SCHOOL_ID])
-                return self.async_create_entry(title=f"Mashov ({school_name})", data=user_input)
+                school_semel = user_input[CONF_SCHOOL_ID]
+                return self.async_create_entry(title=f"Mashov ({school_name} - {school_semel})", data=user_input)
 
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 

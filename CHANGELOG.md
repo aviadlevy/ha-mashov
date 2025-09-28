@@ -11,6 +11,13 @@
 ### Fixed
 - TBD
 
+## [0.1.30] - 2025-09-28
+
+### Changed
+- Enhanced hub display to show both school name and semel number
+- Entry title format now shows: "Mashov (נעמי שמר פתח תקוה - 413955)"
+- Improved identification by combining school name with semel for better clarity
+
 ## [0.1.29] - 2025-09-28
 
 ### Fixed
