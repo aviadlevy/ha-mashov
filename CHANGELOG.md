@@ -11,6 +11,18 @@
 ### Fixed
 - TBD
 
+## [0.1.20] - 2025-01-28
+
+### Fixed
+- Fixed remaining "'dict' object has no attribute 'startswith'" error in authentication
+- Removed problematic token string parsing that was causing authentication failures
+- Simplified authentication flow to rely on accessToken/credential data presence
+- Improved authentication success detection for Mashov API responses
+
+### Changed
+- Streamlined token handling logic to avoid string conversion errors
+- Enhanced authentication flow to work with dict-based API responses
+
 ## [0.1.19] - 2025-01-28
 
 ### Fixed
