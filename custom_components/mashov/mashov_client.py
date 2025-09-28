@@ -356,22 +356,15 @@ class MashovClient:
             if class_code and class_num:
                 name += f" ({class_code}{class_num})"
             
-            # Use childGuid as ID (convert to int if possible, otherwise use hash)
-            if child_guid:
-                try:
-                    # Try to extract numeric part from GUID
-                    sid = int(child_guid.replace("-", "")[:8], 16)
-                except:
-                    # Fallback to hash of GUID
-                    sid = abs(hash(child_guid)) % 1000000
-            else:
+            # Use childGuid directly as the student ID
+            if not child_guid:
                 _LOGGER.warning("Child without GUID found: %s", child)
                 continue
                 
             students.append({
-                "id": sid, 
+                "id": child_guid,  # Use childGuid directly as ID
                 "name": name, 
-                "slug": _slugify(name) or f"student_{sid}",
+                "slug": _slugify(name) or f"student_{child_guid}",
                 "child_guid": child_guid,
                 "class_code": class_code,
                 "class_num": class_num
@@ -412,23 +405,34 @@ class MashovClient:
             async def fetch(url_key: str):
                 url = urls[url_key]
                 _LOGGER.debug("Fetching %s for student %s from: %s", url_key, sid, url)
-                async with self._session.get(url, headers=self._headers) as resp:
-                    _LOGGER.debug("%s response status for student %s: %s", url_key, sid, resp.status)
-                    if resp.status == 401:
-                        _LOGGER.warning("401 on %s for student %s, attempting re-login...", url_key, sid)
-                        await self.async_init(None)  # re-login
-                        return await fetch(url_key)
-                    if resp.status >= 400:
-                        txt = await resp.text()
-                        _LOGGER.error("HTTP %s for %s (student %s): %s", resp.status, url_key, sid, txt)
-                        raise MashovError(f"HTTP {resp.status} for {url_key} (student {sid}): {txt}")
-                    try:
-                        data = await resp.json()
-                        _LOGGER.debug("%s returned %d items for student %s", url_key, len(data) if isinstance(data, list) else 1, sid)
-                        return data
-                    except Exception as e:
-                        _LOGGER.debug("Failed to parse %s as JSON for student %s: %s", url_key, sid, e)
-                        return await resp.text()
+                try:
+                    async with self._session.get(url, headers=self._headers) as resp:
+                        _LOGGER.debug("%s response status for student %s: %s", url_key, sid, resp.status)
+                        if resp.status == 401:
+                            _LOGGER.warning("401 on %s for student %s, attempting re-login...", url_key, sid)
+                            await self.async_init(None)  # re-login
+                            return await fetch(url_key)
+                        if resp.status == 404:
+                            _LOGGER.warning("HTTP 404 for %s (student %s) - endpoint not available", url_key, sid)
+                            return []  # Return empty list for 404 errors
+                        if resp.status == 400:
+                            txt = await resp.text()
+                            _LOGGER.warning("HTTP 400 for %s (student %s): %s - skipping", url_key, sid, txt)
+                            return []  # Return empty list for 400 errors
+                        if resp.status >= 400:
+                            txt = await resp.text()
+                            _LOGGER.error("HTTP %s for %s (student %s): %s", resp.status, url_key, sid, txt)
+                            return []  # Return empty list for other errors instead of raising
+                        try:
+                            data = await resp.json()
+                            _LOGGER.debug("%s returned %d items for student %s", url_key, len(data) if isinstance(data, list) else 1, sid)
+                            return data
+                        except Exception as e:
+                            _LOGGER.debug("Failed to parse %s as JSON for student %s: %s", url_key, sid, e)
+                            return await resp.text()
+                except Exception as e:
+                    _LOGGER.warning("Exception fetching %s for student %s: %s", url_key, sid, e)
+                    return []  # Return empty list on exception
 
             timetable, weekly, homework, behavior = await asyncio.gather(
                 fetch("timetable_today"), fetch("weekly_plan"), fetch("homework"), fetch("behavior")

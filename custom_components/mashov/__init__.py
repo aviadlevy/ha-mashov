@@ -27,9 +27,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         version_file = os.path.join(current_dir, "..", "..", "..", "VERSION")
         with open(version_file, "r") as f:
             version = f.read().strip()
-    except:
-        version = "unknown"
-    _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
+        _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
+    except Exception as e:
+        _LOGGER.warning("Could not read version file: %s", e)
+        _LOGGER.info("Setting up Mashov integration for entry: %s", entry.title)
     hass.data.setdefault(DOMAIN, {})
 
     data = entry.data

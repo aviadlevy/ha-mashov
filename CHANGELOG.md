@@ -11,6 +11,19 @@
 ### Fixed
 - TBD
 
+## [0.1.25] - 2025-09-28
+
+### Fixed
+- Fixed student ID usage - now using childGuid directly instead of converted hash
+- Fixed version logging issue in integration setup
+- Improved error handling for 404 and 400 HTTP responses
+- Better handling of missing data endpoints
+
+### Changed
+- Student IDs now use the actual childGuid from Mashov API
+- Enhanced error recovery for individual data fetch failures
+- Improved logging for better debugging
+
 ## [0.1.24] - 2025-01-28
 
 ### Fixed
