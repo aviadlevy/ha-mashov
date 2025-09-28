@@ -11,6 +11,17 @@
 ### Fixed
 - TBD
 
+## [0.1.29] - 2025-09-28
+
+### Fixed
+- Fixed hub display to show school name instead of semel number
+- Improved school name extraction from school choices during configuration
+- Enhanced entry title to display proper school name in Home Assistant
+
+### Changed
+- School selection now properly stores and displays school name instead of semel
+- Entry title format changed from "Mashov (413955)" to "Mashov (נעמי שמר פתח תקוה)"
+
 ## [0.1.28] - 2025-09-28
 
 ### Added

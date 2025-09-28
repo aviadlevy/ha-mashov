@@ -177,7 +177,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 await client.async_close()
                 user_input.pop(CONF_SCHOOL_NAME, None)
-                return self.async_create_entry(title=f"Mashov ({user_input[CONF_SCHOOL_ID]})", data=user_input)
+                # Get school name from the cached data or use semel as fallback
+                school_name = self._cached_user.get(CONF_SCHOOL_NAME, user_input[CONF_SCHOOL_ID])
+                return self.async_create_entry(title=f"Mashov ({school_name})", data=user_input)
 
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
@@ -185,8 +187,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             # Convert string value back to int
-            self._cached_user[CONF_SCHOOL_ID] = int(user_input["selected_school"])
-            self._cached_user[CONF_SCHOOL_NAME] = str(user_input["selected_school"])
+            selected_semel = int(user_input["selected_school"])
+            self._cached_user[CONF_SCHOOL_ID] = selected_semel
+            
+            # Find the school name from the choices
+            school_name = None
+            for label, semel in self._school_choices.items():
+                if semel == selected_semel:
+                    school_name = label
+                    break
+            
+            self._cached_user[CONF_SCHOOL_NAME] = school_name or str(selected_semel)
             return await self.async_step_user(self._cached_user)
 
         # Convert choices to SelectSelector format - values must be strings
