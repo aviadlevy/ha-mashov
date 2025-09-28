@@ -65,6 +65,7 @@ class MashovClient:
 
         # store all students
         self._students: List[Dict[str, Any]] = []  # [{id, name, slug}]
+        self._auth_data: Dict[str, Any] = {}  # Store authentication response data
 
     def _resolve_endpoints(self):
         global LOGIN_ENDPOINT, ME_ENDPOINT, ENDPOINTS
@@ -276,18 +277,38 @@ class MashovClient:
                         data = {}
                     
                     # Look for token in multiple places
-                    token = (data.get("accessToken") or data.get("token") or data.get("access_token") or 
-                            resp.headers.get("X-CSRF-Token") or resp.headers.get("authorization") or
-                            resp.headers.get("Authorization") or resp.headers.get("x-access-token"))
+                    token = None
+                    token_data = data.get("accessToken") or data.get("token") or data.get("access_token")
+                    
+                    # Handle different token formats
+                    if isinstance(token_data, dict):
+                        # If token is a dict, look for JWT or other token fields
+                        token = token_data.get("jwt") or token_data.get("access_token") or token_data.get("token")
+                    elif isinstance(token_data, str):
+                        token = token_data
+                    
+                    # Also check headers
+                    if not token:
+                        token = (resp.headers.get("X-CSRF-Token") or resp.headers.get("authorization") or
+                                resp.headers.get("Authorization") or resp.headers.get("x-access-token") or
+                                resp.headers.get("JWT"))
                     
                     self._headers = {"Accept": "application/json"}
                     if token:
                         # Try different authorization formats
-                        if token.startswith("Bearer "):
+                        if isinstance(token, str) and token.startswith("Bearer "):
                             self._headers["Authorization"] = token
-                        else:
+                        elif isinstance(token, str):
                             self._headers["Authorization"] = f"Bearer {token}"
-                        _LOGGER.debug("Authentication token received and set")
+                        else:
+                            _LOGGER.warning("Token is not a string: %s", type(token))
+                            token = None
+                    
+                    # If we have accessToken data (even if it's a dict), we can proceed
+                    if token or data.get("accessToken"):
+                        _LOGGER.debug("Authentication successful - token/data received")
+                        # Store the full response data for later use
+                        self._auth_data = data
                         break  # Success, exit retry loop
                     else:
                         _LOGGER.warning("No authentication token received. Available data keys: %s, headers: %s", 

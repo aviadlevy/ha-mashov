@@ -11,6 +11,20 @@
 ### Fixed
 - TBD
 
+## [0.1.19] - 2025-01-28
+
+### Fixed
+- Fixed "'dict' object has no attribute 'startswith'" error in token parsing
+- Improved token handling to support both string and dict token formats
+- Fixed school names displaying "None" instead of proper city names
+- Enhanced authentication flow to handle complex token responses from Mashov API
+- Better error handling for different token formats and authentication responses
+
+### Changed
+- School names now display "לא צוין" instead of "None" when city is not available
+- Improved token parsing logic to handle dict-based authentication responses
+- Enhanced authentication data storage for better session management
+
 ## [0.1.18] - 2025-01-28
 
 ### Fixed

@@ -68,7 +68,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._catalog_options = [
                         {
                             "value": int(it["semel"]),
-                            "label": f"{it.get('name','?')} – {it.get('city','?')} ({it['semel']})",
+                            "label": f"{it.get('name','?')} – {it.get('city','') or 'לא צוין'} ({it['semel']})",
                         }
                         for it in sorted_catalog
                         if it.get("semel") and it.get("name")
@@ -142,7 +142,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             self._school_choices = {}
                             for r in results:
                                 name = r.get('name', 'Unknown School')
-                                city = r.get('city', 'Unknown City')
+                                city = r.get('city', '') or 'לא צוין'
                                 semel = r.get('semel')
                                 if semel:
                                     label = f"{name} – {city} ({semel})"
