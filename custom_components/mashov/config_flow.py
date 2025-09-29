@@ -13,6 +13,10 @@ from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
+    TimeSelector,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -239,26 +243,58 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             CONF_SCHEDULE_INTERVAL: self.config_entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
         }
         schema = vol.Schema({
-            vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(int, vol.Range(min=0, max=60)),
-            vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(int, vol.Range(min=1, max=120)),
-            vol.Optional(CONF_DAILY_REFRESH_TIME, default=options[CONF_DAILY_REFRESH_TIME]): str,
-            vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
-            vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): vol.In({
-                "daily": "יומי",
-                "weekly": "שבועי", 
-                "interval": "כל X דקות/שעות"
-            }),
-            vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
-            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): vol.In({
-                0: "יום שני",
-                1: "יום שלישי", 
-                2: "יום רביעי",
-                3: "יום חמישי",
-                4: "יום שישי",
-                5: "יום שבת",
-                6: "יום ראשון"
-            }),
-            vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): vol.All([vol.In([0,1,2,3,4,5,6])]),
-            vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
+            vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): NumberSelector(
+                NumberSelectorConfig(min=0, max=60, step=1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): NumberSelector(
+                NumberSelectorConfig(min=1, max=120, step=1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Optional(CONF_DAILY_REFRESH_TIME, default=options[CONF_DAILY_REFRESH_TIME]): TimeSelector(),
+            vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        {"value": "daily", "label": "יומי"},
+                        {"value": "weekly", "label": "שבועי"},
+                        {"value": "interval", "label": "כל X דקות/שעות"},
+                    ],
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): TimeSelector(),
+            # Backward compat single day selector
+            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        {"value": 0, "label": "יום שני"},
+                        {"value": 1, "label": "יום שלישי"},
+                        {"value": 2, "label": "יום רביעי"},
+                        {"value": 3, "label": "יום חמישי"},
+                        {"value": 4, "label": "יום שישי"},
+                        {"value": 5, "label": "יום שבת"},
+                        {"value": 6, "label": "יום ראשון"},
+                    ],
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            # New: multi days selector
+            vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        {"value": 0, "label": "יום שני"},
+                        {"value": 1, "label": "יום שלישי"},
+                        {"value": 2, "label": "יום רביעי"},
+                        {"value": 3, "label": "יום חמישי"},
+                        {"value": 4, "label": "יום שישי"},
+                        {"value": 5, "label": "יום שבת"},
+                        {"value": 6, "label": "יום ראשון"},
+                    ],
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): NumberSelector(
+                NumberSelectorConfig(min=5, max=1440, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min")
+            ),
         })
         return self.async_show_form(step_id="init", data_schema=schema)

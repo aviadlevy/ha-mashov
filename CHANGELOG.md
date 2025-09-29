@@ -16,6 +16,12 @@
 
 ## [0.1.52] - 2025-09-29
 
+## [0.1.53] - 2025-09-29
+
+### Changed
+- Options UI refined: TimeSelector, multi-day weekly, interval in minutes
+- Version bump for HACS update and distribution
+
 ### Added
 - Options flow wired to Hub (per-entry) via async_get_options_flow
 
