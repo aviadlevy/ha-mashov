@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.1.45] - 2025-09-29
+
+### Added
+- Per-hub (per-entry) scheduling controls in Options
+- Weekly mode now supports selecting multiple days + time
+- Automatic reschedule on options change (no restart needed)
+
+### Changed
+- Default refresh time set to 14:00 daily
+
 ### Added
 - TBD
 
@@ -10,6 +20,26 @@
 
 ### Fixed
 - TBD
+
+## [0.1.44] - 2025-09-29
+
+### Fixed
+- **Automatic hub title update** - integration now automatically updates hub title on reload
+- **School name preservation** - school name is now saved in config data for reliable title updates
+- Hub title will automatically fix itself from "413955 413955" to "נעמי שמר פתח תקוה 413955"
+- No need to manually reconfigure or reinstall the integration
+
+### Added
+- Sensors now expose refresh schedule details in attributes:
+  - `schedule_type`, `schedule_time`, `schedule_day`, `schedule_interval_minutes`
+  - `schedule_friendly` and `next_scheduled_refresh`
+
+## [0.1.43] - 2025-09-29
+
+### Fixed
+- Fixed hub title display issue - now properly shows school name and semel
+- Improved title creation logic to preserve school name from cache
+- Added debug logging for title creation process
 
 ## [0.1.42] - 2025-09-29
 

@@ -21,7 +21,7 @@ from .const import (
     DOMAIN,
     CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_USERNAME, CONF_PASSWORD,
     CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
-    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
+    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
     DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE,
     DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
 )
@@ -178,10 +178,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 await client.async_close()
-                user_input.pop(CONF_SCHOOL_NAME, None)
                 # Get school name from the cached data or use semel as fallback
                 school_name = self._cached_user.get(CONF_SCHOOL_NAME, user_input[CONF_SCHOOL_ID])
                 school_semel = user_input[CONF_SCHOOL_ID]
+                _LOGGER.debug("Creating entry with title: %s %s", school_name, school_semel)
+                # Save school name in data for later use (e.g., title updates)
+                user_input[CONF_SCHOOL_NAME] = school_name
                 return self.async_create_entry(title=f"{school_name} {school_semel}", data=user_input)
 
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -233,6 +235,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             CONF_SCHEDULE_TYPE: self.config_entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE),
             CONF_SCHEDULE_TIME: self.config_entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME),
             CONF_SCHEDULE_DAY: self.config_entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY),
+            CONF_SCHEDULE_DAYS: self.config_entry.options.get(CONF_SCHEDULE_DAYS, [DEFAULT_SCHEDULE_DAY]),
             CONF_SCHEDULE_INTERVAL: self.config_entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
         }
         schema = vol.Schema({
@@ -255,6 +258,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 5: "יום שבת",
                 6: "יום ראשון"
             }),
+            vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): vol.All([vol.In([0,1,2,3,4,5,6])]),
             vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
         })
         return self.async_show_form(step_id="init", data_schema=schema)

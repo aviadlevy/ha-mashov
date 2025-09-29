@@ -14,17 +14,18 @@ CONF_DAILY_REFRESH_TIME = "daily_refresh_time"  # "HH:MM"
 CONF_API_BASE = "api_base"
 CONF_SCHEDULE_TYPE = "schedule_type"  # "daily", "weekly", "interval"
 CONF_SCHEDULE_TIME = "schedule_time"  # "HH:MM" for daily/weekly
-CONF_SCHEDULE_DAY = "schedule_day"  # 0-6 for weekly (0=Monday)
+CONF_SCHEDULE_DAY = "schedule_day"  # 0-6 for weekly (0=Monday) - backwards compat
+CONF_SCHEDULE_DAYS = "schedule_days"  # list of 0-6 for weekly
 CONF_SCHEDULE_INTERVAL = "schedule_interval"  # minutes for interval
 
 PLATFORMS = ["sensor"]
 
 DEFAULT_HOMEWORK_DAYS_BACK = 7
 DEFAULT_HOMEWORK_DAYS_FORWARD = 21
-DEFAULT_DAILY_REFRESH_TIME = "02:30"
+DEFAULT_DAILY_REFRESH_TIME = "14:00"
 DEFAULT_API_BASE = "https://web.mashov.info/api/"
 DEFAULT_SCHEDULE_TYPE = "daily"
-DEFAULT_SCHEDULE_TIME = "02:30"
+DEFAULT_SCHEDULE_TIME = "14:00"
 DEFAULT_SCHEDULE_DAY = 0  # Monday
 DEFAULT_SCHEDULE_INTERVAL = 60  # 60 minutes
 

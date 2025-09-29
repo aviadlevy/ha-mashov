@@ -13,7 +13,7 @@ from .const import (
     PLATFORMS,
     CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_YEAR, CONF_USERNAME, CONF_PASSWORD,  # student_name removed
     CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
-    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
+    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
     DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE,
     DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
 )
@@ -107,8 +107,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         "unsub_daily": None,
     }
 
-    _LOGGER.debug("Setting up daily refresh and platforms")
+    _LOGGER.debug("Setting up daily/weekly/interval refresh and platforms")
+    # Schedule according to options (per hub/entry)
     await _async_setup_daily_refresh(hass, entry)
+
+    # Reschedule automatically when options change
+    async def _options_updated(hass: HomeAssistant, updated_entry: ConfigEntry):
+        _LOGGER.info("Options updated for entry %s - reconfiguring scheduler", updated_entry.title)
+        await _async_setup_daily_refresh(hass, updated_entry)
+
+    entry.async_on_unload(entry.add_update_listener(_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def _handle_refresh(call: ServiceCall):
@@ -180,16 +188,19 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.info("Scheduled daily refresh at %02d:%02d", hh, mm)
         
     elif schedule_type == "weekly":
-        # Weekly refresh on specific day and time
-        schedule_day = entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY)
+        # Weekly refresh on specific day(s) and time
+        schedule_days = entry.options.get(CONF_SCHEDULE_DAYS, None)
+        schedule_day_single = entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY)
+        days = schedule_days if isinstance(schedule_days, list) and len(schedule_days) > 0 else [schedule_day_single]
         schedule_time = entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
         try:
             hh, mm = [int(x) for x in schedule_time.split(":")]
         except Exception:
-            hh, mm = 2, 30
-        unsub = async_track_time_change(hass, _refresh_data, weekday=schedule_day, hour=hh, minute=mm, second=0)
+            hh, mm = 14, 0
         day_names = ["יום שני", "יום שלישי", "יום רביעי", "יום חמישי", "יום שישי", "יום שבת", "יום ראשון"]
-        _LOGGER.info("Scheduled weekly refresh on %s at %02d:%02d", day_names[schedule_day], hh, mm)
+        for d in days:
+            unsub = async_track_time_change(hass, _refresh_data, weekday=int(d), hour=hh, minute=mm, second=0)
+        _LOGGER.info("Scheduled weekly refresh on %s at %02d:%02d", ", ".join(day_names[int(d)] for d in days), hh, mm)
         
     elif schedule_type == "interval":
         # Interval refresh every X minutes

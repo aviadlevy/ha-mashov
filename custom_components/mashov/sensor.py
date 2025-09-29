@@ -15,7 +15,9 @@ _LOGGER = logging.getLogger(__name__)
 from .const import (
     DOMAIN,
     SENSOR_KEY_HOMEWORK, SENSOR_KEY_BEHAVIOR, SENSOR_KEY_WEEKLY_PLAN,
-    DEVICE_MANUFACTURER, DEVICE_MODEL
+    DEVICE_MANUFACTURER, DEVICE_MODEL,
+    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
+    DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL,
 )
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -73,6 +75,8 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
         
         # Format data for better readability
         formatted_data = self._format_data_for_display(items)
+        # Schedule info
+        schedule_info = self._compute_schedule_info()
         
         return {
             "student_name": self._student_name,
@@ -84,6 +88,13 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             "formatted_summary": formatted_data["summary"],
             "formatted_by_date": formatted_data["by_date"],
             "formatted_by_subject": formatted_data["by_subject"],
+            # Refresh schedule
+            "schedule_type": schedule_info.get("type"),
+            "schedule_time": schedule_info.get("time"),
+            "schedule_day": schedule_info.get("day"),
+            "schedule_interval_minutes": schedule_info.get("interval_minutes"),
+            "schedule_friendly": schedule_info.get("friendly"),
+            "next_scheduled_refresh": schedule_info.get("next"),
         }
 
     @property
@@ -115,6 +126,78 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
                 "summary": f"יש {len(items)} פריטים",
                 "by_date": {},
                 "by_subject": {}
+            }
+
+    def _compute_schedule_info(self) -> Dict[str, Any]:
+        """Return current refresh schedule configuration and friendly description."""
+        try:
+            from datetime import datetime, timedelta
+            opts = getattr(self.coordinator, "entry", None).options if hasattr(self.coordinator, "entry") else {}
+            schedule_type = opts.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE)
+            schedule_time = opts.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
+            schedule_day = opts.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY)
+            schedule_days = opts.get(CONF_SCHEDULE_DAYS, [schedule_day])
+            schedule_interval = opts.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL)
+
+            friendly = None
+            next_time_iso = None
+            now = datetime.now()
+
+            if schedule_type == "daily":
+                try:
+                    hh, mm = [int(x) for x in str(schedule_time).split(":")]
+                except Exception:
+                    hh, mm = [int(x) for x in DEFAULT_SCHEDULE_TIME.split(":")]
+                next_dt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+                if next_dt <= now:
+                    next_dt = next_dt + timedelta(days=1)
+                friendly = f"יומי בשעה {hh:02d}:{mm:02d}"
+                next_time_iso = next_dt.isoformat(timespec="seconds")
+            elif schedule_type == "weekly":
+                try:
+                    hh, mm = [int(x) for x in str(schedule_time).split(":")]
+                except Exception:
+                    hh, mm = [int(x) for x in DEFAULT_SCHEDULE_TIME.split(":")]
+                # Our 0=Monday mapping; Python weekday(): Monday=0
+                # Compute next closest day from the list
+                candidates = []
+                for target_wd in schedule_days:
+                    target_wd = int(target_wd)
+                    days_ahead = (target_wd - now.weekday()) % 7
+                    dt = now.replace(hour=hh, minute=mm, second=0, microsecond=0) + timedelta(days=days_ahead)
+                    if dt <= now:
+                        dt = dt + timedelta(days=7)
+                    candidates.append(dt)
+                next_dt = min(candidates) if candidates else now
+                day_names = ["יום שני", "יום שלישי", "יום רביעי", "יום חמישי", "יום שישי", "יום שבת", "יום ראשון"]
+                friendly_days = ", ".join(day_names[int(d)] for d in schedule_days)
+                friendly = f"שבועי – {friendly_days} {hh:02d}:{mm:02d}"
+                next_time_iso = next_dt.isoformat(timespec="seconds")
+            elif schedule_type == "interval":
+                interval_min = int(schedule_interval)
+                next_dt = now + timedelta(minutes=interval_min)
+                friendly = f"כל {interval_min} דקות"
+                next_time_iso = next_dt.isoformat(timespec="seconds")
+            else:
+                friendly = "ברירת מחדל (24 שעות)"
+
+            return {
+                "type": schedule_type,
+                "time": schedule_time,
+                "day": schedule_day,
+                "interval_minutes": schedule_interval,
+                "friendly": friendly,
+                "next": next_time_iso,
+            }
+        except Exception as e:
+            _LOGGER.debug("Failed computing schedule info: %s", e)
+            return {
+                "type": DEFAULT_SCHEDULE_TYPE,
+                "time": DEFAULT_SCHEDULE_TIME,
+                "day": DEFAULT_SCHEDULE_DAY,
+                "interval_minutes": DEFAULT_SCHEDULE_INTERVAL,
+                "friendly": "",
+                "next": None,
             }
 
     def _format_homework_data(self, items: list) -> Dict[str, Any]:
