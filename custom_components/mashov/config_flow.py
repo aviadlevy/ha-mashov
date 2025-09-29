@@ -21,7 +21,9 @@ from .const import (
     DOMAIN,
     CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_USERNAME, CONF_PASSWORD,
     CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
-    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE
+    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
+    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE,
+    DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
 )
 from .mashov_client import MashovClient, MashovAuthError, MashovError
 
@@ -180,7 +182,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Get school name from the cached data or use semel as fallback
                 school_name = self._cached_user.get(CONF_SCHOOL_NAME, user_input[CONF_SCHOOL_ID])
                 school_semel = user_input[CONF_SCHOOL_ID]
-                return self.async_create_entry(title=f"{school_name}\n{school_semel}", data=user_input)
+                return self.async_create_entry(title=f"{school_name} {school_semel}", data=user_input)
 
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
@@ -228,11 +230,31 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             CONF_HOMEWORK_DAYS_FORWARD: self.config_entry.options.get(CONF_HOMEWORK_DAYS_FORWARD, DEFAULT_HOMEWORK_DAYS_FORWARD),
             CONF_DAILY_REFRESH_TIME: self.config_entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_DAILY_REFRESH_TIME),
             CONF_API_BASE: self.config_entry.options.get(CONF_API_BASE, DEFAULT_API_BASE),
+            CONF_SCHEDULE_TYPE: self.config_entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE),
+            CONF_SCHEDULE_TIME: self.config_entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME),
+            CONF_SCHEDULE_DAY: self.config_entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY),
+            CONF_SCHEDULE_INTERVAL: self.config_entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
         }
         schema = vol.Schema({
             vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(int, vol.Range(min=0, max=60)),
             vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(int, vol.Range(min=1, max=120)),
             vol.Optional(CONF_DAILY_REFRESH_TIME, default=options[CONF_DAILY_REFRESH_TIME]): str,
             vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
+            vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): vol.In({
+                "daily": "יומי",
+                "weekly": "שבועי", 
+                "interval": "כל X דקות/שעות"
+            }),
+            vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
+            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): vol.In({
+                0: "יום שני",
+                1: "יום שלישי", 
+                2: "יום רביעי",
+                3: "יום חמישי",
+                4: "יום שישי",
+                5: "יום שבת",
+                6: "יום ראשון"
+            }),
+            vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
         })
         return self.async_show_form(step_id="init", data_schema=schema)

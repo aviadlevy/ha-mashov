@@ -149,8 +149,9 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             homework_text = item.get("homework", "")
             remark = item.get("remark", "")
             lesson = item.get("lesson", "")
+            subject_name = item.get("subject_name", "")
             
-            entry = f"שיעור {lesson}: {homework_text}"
+            entry = f"שיעור {lesson} - {subject_name}: {homework_text}"
             if remark and remark != homework_text:
                 entry += f" ({remark})"
             

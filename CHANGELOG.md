@@ -11,6 +11,35 @@
 ### Fixed
 - TBD
 
+## [0.1.42] - 2025-09-29
+
+### Fixed
+- Enhanced homework data formatting to include subject name
+- Homework entries now show: "שיעור X - מקצוע: תיאור השיעורים"
+- Improved readability by including subject information in formatted output
+
+## [0.1.41] - 2025-09-29
+
+### Fixed
+- Changed integration type back to "hub" to display as "school" in Home Assistant
+- Fixed hub title format to show school name and semel properly
+- Hub title now displays as "נעמי שמר פתח תקוה 413955" instead of "413955 413955"
+
+## [0.1.40] - 2025-09-29
+
+### Added
+- Advanced scheduling options for data collection
+- Daily, weekly, and interval scheduling modes
+- Configurable refresh times and intervals
+- Hebrew interface for schedule configuration
+
+### Changed
+- Enhanced options flow with new scheduling parameters
+- Schedule Type: Daily, Weekly, or Interval-based refresh
+- Schedule Time: Specific time for daily/weekly refresh (HH:MM format)
+- Schedule Day: Day of week for weekly refresh (Monday-Sunday)
+- Schedule Interval: Minutes between refreshes (5-1440 minutes range)
+
 ## [0.1.39] - 2025-09-29
 
 ### Added

@@ -13,7 +13,9 @@ from .const import (
     PLATFORMS,
     CONF_SCHOOL_ID, CONF_YEAR, CONF_USERNAME, CONF_PASSWORD,  # student_name removed
     CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
-    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE
+    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
+    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE,
+    DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
 )
 from .mashov_client import MashovClient, MashovAuthError, MashovError
 
@@ -133,25 +135,57 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     return unload_ok
 
 async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
-    from .const import DEFAULT_DAILY_REFRESH_TIME, CONF_DAILY_REFRESH_TIME
+    from .const import (
+        DEFAULT_DAILY_REFRESH_TIME, CONF_DAILY_REFRESH_TIME,
+        CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
+        DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
+    )
+    from homeassistant.helpers.event import async_track_time_interval
+    
     data = hass.data[DOMAIN][entry.entry_id]
     if data.get("unsub_daily"):
         data["unsub_daily"]()
 
-    daily_time = entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_DAILY_REFRESH_TIME)
-    try:
-        hh, mm = [int(x) for x in daily_time.split(":")]
-    except Exception:
-        hh, mm = 2, 30
-
+    schedule_type = entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE)
+    
     @callback
-    async def _at_time(now):
-        _LOGGER.debug("Daily refresh triggered at %s", now)
+    async def _refresh_data(now=None):
+        _LOGGER.debug("Scheduled refresh triggered at %s", now)
         ce = hass.data[DOMAIN].get(entry.entry_id)
         if ce:
             await ce["coordinator"].async_request_refresh()
 
-    unsub = async_track_time_change(hass, _at_time, hour=hh, minute=mm, second=0)
+    unsub = None
+    
+    if schedule_type == "daily":
+        # Daily refresh at specific time
+        daily_time = entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
+        try:
+            hh, mm = [int(x) for x in daily_time.split(":")]
+        except Exception:
+            hh, mm = 2, 30
+        unsub = async_track_time_change(hass, _refresh_data, hour=hh, minute=mm, second=0)
+        _LOGGER.info("Scheduled daily refresh at %02d:%02d", hh, mm)
+        
+    elif schedule_type == "weekly":
+        # Weekly refresh on specific day and time
+        schedule_day = entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY)
+        schedule_time = entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
+        try:
+            hh, mm = [int(x) for x in schedule_time.split(":")]
+        except Exception:
+            hh, mm = 2, 30
+        unsub = async_track_time_change(hass, _refresh_data, weekday=schedule_day, hour=hh, minute=mm, second=0)
+        day_names = ["יום שני", "יום שלישי", "יום רביעי", "יום חמישי", "יום שישי", "יום שבת", "יום ראשון"]
+        _LOGGER.info("Scheduled weekly refresh on %s at %02d:%02d", day_names[schedule_day], hh, mm)
+        
+    elif schedule_type == "interval":
+        # Interval refresh every X minutes
+        interval_minutes = entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL)
+        interval = timedelta(minutes=interval_minutes)
+        unsub = async_track_time_interval(hass, _refresh_data, interval)
+        _LOGGER.info("Scheduled interval refresh every %d minutes", interval_minutes)
+    
     hass.data[DOMAIN][entry.entry_id]["unsub_daily"] = unsub
 
 class MashovCoordinator(DataUpdateCoordinator):
