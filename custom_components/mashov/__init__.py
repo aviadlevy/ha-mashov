@@ -71,8 +71,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     school_name = data.get(CONF_SCHOOL_NAME, "")
     current_title = entry.title
     
-    # Check if title needs update (e.g., if it's showing duplicate semel or missing school name)
-    expected_title = f"{school_name} {school_id}" if school_name else f"{school_id}"
+    # Check if title needs update (e.g., wrong format or duplicates)
+    expected_title = f"{school_name} ({school_id})" if school_name else f"{school_id}"
     if current_title and school_id and current_title.strip() != expected_title.strip():
         _LOGGER.info("Hub title needs update: '%s' -> '%s'", current_title, expected_title)
         # Update the entry title
@@ -154,6 +154,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     _LOGGER.debug("Unload result: %s", unload_ok)
     return unload_ok
 
+async def async_get_options_flow(config_entry: ConfigEntry):
+    # Defer import to avoid circular import at module load time
+    from .config_flow import OptionsFlowHandler
+    return OptionsFlowHandler(config_entry)
+
 async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
     from .const import (
         DEFAULT_DAILY_REFRESH_TIME, CONF_DAILY_REFRESH_TIME,
@@ -163,8 +168,18 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
     from homeassistant.helpers.event import async_track_time_interval
     
     data = hass.data[DOMAIN][entry.entry_id]
-    if data.get("unsub_daily"):
-        data["unsub_daily"]()
+    # Cancel previous schedules (support list or single callable)
+    prev = data.get("unsub_daily")
+    if prev:
+        try:
+            if isinstance(prev, list):
+                for fn in prev:
+                    if callable(fn):
+                        fn()
+            elif callable(prev):
+                prev()
+        except Exception as e:
+            _LOGGER.debug("Error cancelling previous schedules: %s", e)
 
     schedule_type = entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE)
     
@@ -175,7 +190,7 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
         if ce:
             await ce["coordinator"].async_request_refresh()
 
-    unsub = None
+    unsubs = []
     
     if schedule_type == "daily":
         # Daily refresh at specific time
@@ -184,7 +199,7 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
             hh, mm = [int(x) for x in daily_time.split(":")]
         except Exception:
             hh, mm = 2, 30
-        unsub = async_track_time_change(hass, _refresh_data, hour=hh, minute=mm, second=0)
+        unsubs.append(async_track_time_change(hass, _refresh_data, hour=hh, minute=mm, second=0))
         _LOGGER.info("Scheduled daily refresh at %02d:%02d", hh, mm)
         
     elif schedule_type == "weekly":
@@ -199,17 +214,17 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
             hh, mm = 14, 0
         day_names = ["יום שני", "יום שלישי", "יום רביעי", "יום חמישי", "יום שישי", "יום שבת", "יום ראשון"]
         for d in days:
-            unsub = async_track_time_change(hass, _refresh_data, weekday=int(d), hour=hh, minute=mm, second=0)
+            unsubs.append(async_track_time_change(hass, _refresh_data, weekday=int(d), hour=hh, minute=mm, second=0))
         _LOGGER.info("Scheduled weekly refresh on %s at %02d:%02d", ", ".join(day_names[int(d)] for d in days), hh, mm)
         
     elif schedule_type == "interval":
         # Interval refresh every X minutes
         interval_minutes = entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL)
         interval = timedelta(minutes=interval_minutes)
-        unsub = async_track_time_interval(hass, _refresh_data, interval)
+        unsubs.append(async_track_time_interval(hass, _refresh_data, interval))
         _LOGGER.info("Scheduled interval refresh every %d minutes", interval_minutes)
     
-    hass.data[DOMAIN][entry.entry_id]["unsub_daily"] = unsub
+    hass.data[DOMAIN][entry.entry_id]["unsub_daily"] = unsubs
 
 class MashovCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, client: MashovClient, entry: ConfigEntry):

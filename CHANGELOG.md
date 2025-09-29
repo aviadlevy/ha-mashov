@@ -14,6 +14,15 @@
 
 ## [0.1.51] - 2025-09-29
 
+## [0.1.52] - 2025-09-29
+
+### Added
+- Options flow wired to Hub (per-entry) via async_get_options_flow
+
+### Fixed
+- Scheduler now cancels previous jobs and supports multiple weekly days
+- Hub title format updated to "<school name> (<semel>)"
+
 ### Fixed
 - Removed custom TRACE logger usage to avoid attribute errors in some environments
 - Replaced TRACE calls with DEBUG-compatible helper
