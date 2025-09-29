@@ -1,0 +1,10 @@
+refresh_now:
+  name: "רענן נתונים"
+  description: "רענן את נתוני משחב עבור תלמידים"
+  fields:
+    entry_id:
+      name: "מזהה כניסה"
+      description: "מזהה הכניסה הספציפית לרענון (אופציונלי - אם לא מוגדר, ירענן את כל הכניסות)"
+      required: false
+      selector:
+        text:
