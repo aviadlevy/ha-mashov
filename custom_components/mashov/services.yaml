@@ -7,4 +7,4 @@ refresh_now:
       description: "מזהה הכניסה הספציפית לרענון (אופציונלי - אם לא מוגדר, ירענן את כל הכניסות)"
       required: false
       selector:
-        text:
+        text: {}
