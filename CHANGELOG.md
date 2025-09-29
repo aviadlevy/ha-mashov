@@ -13,17 +13,6 @@
 
 ## [0.1.32] - 2025-09-29
 
-### Added
-- TBD
-
-### Changed
-- TBD
-
-### Fixed
-- TBD
-
-## [0.1.32] - 2025-09-29
-
 ### Fixed
 - Fixed "Failed to load services.yaml for integration: mashov" error
 - Added missing services.yaml file with Hebrew service definitions
