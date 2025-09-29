@@ -12,15 +12,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-# TRACE level for ultra-verbose logs
-TRACE_LEVEL = 5
-if not hasattr(logging, "TRACE"):
-    logging.addLevelName(TRACE_LEVEL, "TRACE")
-    def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(TRACE_LEVEL):
-            self._log(TRACE_LEVEL, message, args, **kwargs)
-    logging.Logger.trace = trace  # type: ignore[attr-defined]
-
 from .const import (
     DOMAIN,
     SENSOR_KEY_HOMEWORK, SENSOR_KEY_BEHAVIOR, SENSOR_KEY_WEEKLY_PLAN,

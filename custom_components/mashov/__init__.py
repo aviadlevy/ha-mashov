@@ -21,15 +21,6 @@ from .mashov_client import MashovClient, MashovAuthError, MashovError
 
 _LOGGER = logging.getLogger(__name__)
 
-# Add TRACE log level for ultra-verbose logs (below DEBUG)
-TRACE_LEVEL = 5
-if not hasattr(logging, "TRACE"):
-    logging.addLevelName(TRACE_LEVEL, "TRACE")
-    def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(TRACE_LEVEL):
-            self._log(TRACE_LEVEL, message, args, **kwargs)
-    logging.Logger.trace = trace  # type: ignore[attr-defined]
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Print version info
     try:
@@ -38,18 +29,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         # Go up from custom_components/mashov/ to the root directory
         version_file = os.path.join(current_dir, "..", "..", "VERSION")
         version_file = os.path.abspath(version_file)  # Get absolute path
-        _LOGGER.trace("Looking for version file at: %s", version_file)
-        _LOGGER.trace("Current directory: %s", current_dir)
-        _LOGGER.trace("Version file path: %s", version_file)
-        _LOGGER.trace("Version file exists: %s", os.path.exists(version_file))
+        _LOGGER.debug("Looking for version file at: %s", version_file)
+        _LOGGER.debug("Current directory: %s", current_dir)
+        _LOGGER.debug("Version file path: %s", version_file)
+        _LOGGER.debug("Version file exists: %s", os.path.exists(version_file))
         
         # Try alternative paths if the first one doesn't work
         if not os.path.exists(version_file):
             # Try going up one more level
             alt_version_file = os.path.join(current_dir, "..", "..", "..", "VERSION")
             alt_version_file = os.path.abspath(alt_version_file)
-            _LOGGER.trace("Trying alternative version file path: %s", alt_version_file)
-            _LOGGER.trace("Alternative version file exists: %s", os.path.exists(alt_version_file))
+            _LOGGER.debug("Trying alternative version file path: %s", alt_version_file)
+            _LOGGER.debug("Alternative version file exists: %s", os.path.exists(alt_version_file))
             if os.path.exists(alt_version_file):
                 version_file = alt_version_file
         

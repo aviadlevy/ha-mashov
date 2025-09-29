@@ -10,6 +10,18 @@
 
 ## [0.1.49] - 2025-09-29
 
+## [0.1.50] - 2025-09-29
+
+## [0.1.51] - 2025-09-29
+
+### Fixed
+- Removed custom TRACE logger usage to avoid attribute errors in some environments
+- Replaced TRACE calls with DEBUG-compatible helper
+
+### Fixed
+- Resolved IndentationError in mashov_client.async_open_session causing config flow load failure
+- Flow can now be loaded without handler/import errors
+
 ### Changed
 - Removed city/name splitting heuristic; use `name` from API as-is
 - UI labels show only: "<name> (<semel>)"

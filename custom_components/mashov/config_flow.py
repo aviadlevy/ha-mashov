@@ -17,15 +17,6 @@ from homeassistant.helpers.selector import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# TRACE level for ultra-verbose logs
-TRACE_LEVEL = 5
-if not hasattr(logging, "TRACE"):
-    logging.addLevelName(TRACE_LEVEL, "TRACE")
-    def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(TRACE_LEVEL):
-            self._log(TRACE_LEVEL, message, args, **kwargs)
-    logging.Logger.trace = trace  # type: ignore[attr-defined]
-
 from .const import (
     DOMAIN,
     CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_USERNAME, CONF_PASSWORD,

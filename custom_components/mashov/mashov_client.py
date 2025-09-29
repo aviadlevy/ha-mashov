@@ -14,14 +14,9 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-# TRACE level for ultra-verbose logs
-TRACE_LEVEL = 5
-if not hasattr(logging, "TRACE"):
-    logging.addLevelName(TRACE_LEVEL, "TRACE")
-    def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(TRACE_LEVEL):
-            self._log(TRACE_LEVEL, message, args, **kwargs)
-    logging.Logger.trace = trace  # type: ignore[attr-defined]
+def _trace(msg: str, *args):
+    # Use DEBUG for portability; can toggle in logger config
+    _LOGGER.debug(msg, *args)
 
 API_BASE = "https://web.mashov.info/api/"  # default; can be overridden
 LOGIN_ENDPOINT = None
@@ -90,7 +85,7 @@ class MashovClient:
 
     async def async_open_session(self) -> None:
         if self._session is None or self._session.closed:
-        _LOGGER.trace("Opening new Mashov client session")
+            _trace("Opening new Mashov client session")
             self._session = aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=60, connect=30),
                 connector=aiohttp.TCPConnector(limit=10, limit_per_host=5)
@@ -124,7 +119,7 @@ class MashovClient:
         all_items: List[Dict[str, Any]] = []
         for url, hdrs in candidates:
             try:
-                _LOGGER.trace("Trying schools catalog endpoint: %s", url)
+                _trace("Trying schools catalog endpoint: %s", url)
                 async with self._session.get(url, headers=hdrs or self._headers) as resp:
                     if resp.status >= 400:
                         _LOGGER.debug("Schools catalog endpoint failed with status %s: %s", resp.status, url)
@@ -162,7 +157,7 @@ class MashovClient:
         ]
         for url, hdrs in candidates:
             try:
-                _LOGGER.trace("Trying school search endpoint: %s", url)
+                _trace("Trying school search endpoint: %s", url)
                 async with self._session.get(url, headers=hdrs or self._headers) as resp:
                     if resp.status >= 400:
                         _LOGGER.debug("School search endpoint failed with status %s: %s", resp.status, url)
