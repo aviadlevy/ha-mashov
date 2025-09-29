@@ -18,6 +18,13 @@
 
 ## [0.1.53] - 2025-09-29
 
+## [0.1.54] - 2025-09-29
+
+### Fixed
+- Options flow compatibility: replaced advanced selectors with basic types so Configure always shows
+- Scheduler fallback: honors schedule_time or daily_refresh_time (backward compat)
+- Added detailed logs to trace scheduler resolution and options loading
+
 ### Changed
 - Options UI refined: TimeSelector, multi-day weekly, interval in minutes
 - Version bump for HACS update and distribution

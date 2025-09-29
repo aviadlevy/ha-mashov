@@ -10,13 +10,6 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
-    TextSelector,
-    TextSelectorConfig,
-    TextSelectorType,
-    TimeSelector,
-    NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -243,14 +236,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             CONF_SCHEDULE_INTERVAL: self.config_entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
         }
         schema = vol.Schema({
-            vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): NumberSelector(
-                NumberSelectorConfig(min=0, max=60, step=1, mode=NumberSelectorMode.BOX)
-            ),
-            vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): NumberSelector(
-                NumberSelectorConfig(min=1, max=120, step=1, mode=NumberSelectorMode.BOX)
-            ),
-            vol.Optional(CONF_DAILY_REFRESH_TIME, default=options[CONF_DAILY_REFRESH_TIME]): TimeSelector(),
-            vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(int, vol.Range(min=0, max=60)),
+            vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(int, vol.Range(min=1, max=120)),
+            vol.Optional(CONF_DAILY_REFRESH_TIME, default=options[CONF_DAILY_REFRESH_TIME]): str,
+            vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
             vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): SelectSelector(
                 SelectSelectorConfig(
                     options=[
@@ -261,7 +250,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
-            vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): TimeSelector(),
+            vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
             # Backward compat single day selector
             vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): SelectSelector(
                 SelectSelectorConfig(
@@ -293,8 +282,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
-            vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): NumberSelector(
-                NumberSelectorConfig(min=5, max=1440, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min")
-            ),
+            vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
         })
         return self.async_show_form(step_id="init", data_schema=schema)

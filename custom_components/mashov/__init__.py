@@ -157,6 +157,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 async def async_get_options_flow(config_entry: ConfigEntry):
     # Defer import to avoid circular import at module load time
     from .config_flow import OptionsFlowHandler
+    _LOGGER.debug("Options flow requested for entry: %s (id=%s)", config_entry.title, config_entry.entry_id)
     return OptionsFlowHandler(config_entry)
 
 async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
@@ -181,7 +182,9 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.debug("Error cancelling previous schedules: %s", e)
 
+    _LOGGER.debug("Scheduler options snapshot: %s", dict(entry.options))
     schedule_type = entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE)
+    _LOGGER.debug("Resolved schedule_type=%s", schedule_type)
     
     @callback
     async def _refresh_data(now=None):
@@ -194,7 +197,8 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
     
     if schedule_type == "daily":
         # Daily refresh at specific time
-        daily_time = entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
+        daily_time = entry.options.get(CONF_SCHEDULE_TIME, entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_SCHEDULE_TIME))
+        _LOGGER.debug("Daily mode selected, using time=%s (schedule_time or daily_refresh_time)", daily_time)
         try:
             hh, mm = [int(x) for x in daily_time.split(":")]
         except Exception:
@@ -207,7 +211,8 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
         schedule_days = entry.options.get(CONF_SCHEDULE_DAYS, None)
         schedule_day_single = entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY)
         days = schedule_days if isinstance(schedule_days, list) and len(schedule_days) > 0 else [schedule_day_single]
-        schedule_time = entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
+        schedule_time = entry.options.get(CONF_SCHEDULE_TIME, entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_SCHEDULE_TIME))
+        _LOGGER.debug("Weekly mode selected, days=%s, time=%s", days, schedule_time)
         try:
             hh, mm = [int(x) for x in schedule_time.split(":")]
         except Exception:
