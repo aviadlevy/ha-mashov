@@ -17,6 +17,15 @@ from homeassistant.helpers.selector import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# TRACE level for ultra-verbose logs
+TRACE_LEVEL = 5
+if not hasattr(logging, "TRACE"):
+    logging.addLevelName(TRACE_LEVEL, "TRACE")
+    def trace(self, message, *args, **kwargs):
+        if self.isEnabledFor(TRACE_LEVEL):
+            self._log(TRACE_LEVEL, message, args, **kwargs)
+    logging.Logger.trace = trace  # type: ignore[attr-defined]
+
 from .const import (
     DOMAIN,
     CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_USERNAME, CONF_PASSWORD,
@@ -62,18 +71,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 
                 if catalog and len(catalog) > 0:
                     # Sort by name for better autocomplete - handle None values
-                    sorted_catalog = sorted(catalog, key=lambda x: (
-                        (x.get('name') or '').lower(), 
-                        (x.get('city') or '').lower()
-                    ))
-                    self._catalog_options = [
-                        {
-                            "value": int(it["semel"]),
-                            "label": f"{it.get('name','?')} – {it.get('city','') or 'לא צוין'} ({it['semel']})",
-                        }
-                        for it in sorted_catalog
-                        if it.get("semel") and it.get("name")
-                    ]
+                    sorted_catalog = sorted(catalog, key=lambda x: (x.get('name') or '').lower())
+                    self._catalog_options = []
+                    for it in sorted_catalog:
+                        if it.get("semel") and it.get("name"):
+                            name = it.get('name','?')
+                            semel = int(it['semel'])
+                            # Do not separate city; show the exact name
+                            label = f"{name} ({semel})"
+                            self._catalog_options.append({"value": semel, "label": label})
                     # Limit to first 50 schools for better dropdown performance
                     if len(self._catalog_options) > 50:
                         self._catalog_options = self._catalog_options[:50]
@@ -143,15 +149,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             self._school_choices = {}
                             for r in results:
                                 name = r.get('name', 'Unknown School')
-                                city = r.get('city', '') or 'לא צוין'
                                 semel = r.get('semel')
                                 if semel:
-                                    label = f"{name} – {city} ({semel})"
+                                    label = f"{name} ({semel})"
                                     self._school_choices[label] = int(semel)
                             _LOGGER.debug("Created %d school choices: %s", len(self._school_choices), list(self._school_choices.keys()))
                             return await self.async_step_pick_school()
                         
                         user_input[CONF_SCHOOL_ID] = int(results[0]["semel"])
+                        # Cache plain school name for title
+                        self._cached_user = dict(user_input)
+                        self._cached_user[CONF_SCHOOL_NAME] = results[0].get("name") or str(user_input[CONF_SCHOOL_ID])
                     except Exception as e:
                         _LOGGER.error("Error searching for schools: %s", e)
                         errors["base"] = "cannot_connect"
@@ -195,11 +203,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             selected_semel = int(user_input["selected_school"])
             self._cached_user[CONF_SCHOOL_ID] = selected_semel
             
-            # Find the school name from the choices
+            # Find the school name from the choices (extract plain name without city/semel)
             school_name = None
             for label, semel in self._school_choices.items():
                 if semel == selected_semel:
-                    school_name = label
+                    # label format: "Name – City (Semel)"
+                    school_name = label.split(" – ")[0].split(" (")[0]
                     break
             
             self._cached_user[CONF_SCHOOL_NAME] = school_name or str(selected_semel)

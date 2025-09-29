@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+## [0.1.46] - 2025-09-29
+
+## [0.1.47] - 2025-09-29
+
+## [0.1.48] - 2025-09-29
+
+## [0.1.49] - 2025-09-29
+
+### Changed
+- Removed city/name splitting heuristic; use `name` from API as-is
+- UI labels show only: "<name> (<semel>)"
+- Multi-match logic (pick list) preserved when searching by name
+
+### Fixed
+- Derive city from school name when API does not include a separate city field
+- Labels now show "Name – City (semel)" or "Name (semel)" accordingly
+
+### Added
+- Introduced TRACE log level (below DEBUG) across integration
+- Converted verbose init/catalog logs to TRACE
+
+### Changed
+- Safer label building for schools when city is missing
+
+### Fixed
+- Import CONF_SCHEDULE_DAYS in sensor to compute schedule info correctly
+- Schedule attributes now populate without errors
+
 ## [0.1.45] - 2025-09-29
 
 ### Added
