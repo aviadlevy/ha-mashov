@@ -11,7 +11,7 @@ from homeassistant.helpers.event import async_track_time_change
 from .const import (
     DOMAIN,
     PLATFORMS,
-    CONF_SCHOOL_ID, CONF_YEAR, CONF_USERNAME, CONF_PASSWORD,  # student_name removed
+    CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_YEAR, CONF_USERNAME, CONF_PASSWORD,  # student_name removed
     CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
     CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
     DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE,
@@ -65,7 +65,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.info("Setting up Mashov integration for entry: %s", entry.title)
     hass.data.setdefault(DOMAIN, {})
 
+    # Update entry title if needed
     data = entry.data
+    school_id = data.get(CONF_SCHOOL_ID, "")
+    school_name = data.get(CONF_SCHOOL_NAME, "")
+    current_title = entry.title
+    
+    # Check if title needs update (e.g., if it's showing duplicate semel or missing school name)
+    expected_title = f"{school_name} {school_id}" if school_name else f"{school_id}"
+    if current_title and school_id and current_title.strip() != expected_title.strip():
+        _LOGGER.info("Hub title needs update: '%s' -> '%s'", current_title, expected_title)
+        # Update the entry title
+        hass.config_entries.async_update_entry(entry, title=expected_title)
+        _LOGGER.info("Hub title updated successfully")
     client = MashovClient(
         school_id=data[CONF_SCHOOL_ID],
         year=data.get(CONF_YEAR),  # if you applied auto-year, passing None is fine
