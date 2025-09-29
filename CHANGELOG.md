@@ -11,6 +11,69 @@
 ### Fixed
 - TBD
 
+## [0.1.39] - 2025-09-29
+
+### Added
+- Enhanced sensor data presentation with formatted summaries
+- Added organized data grouping by date and subject
+- Improved readability for text-to-speech applications
+- Added formatted_summary, formatted_by_date, and formatted_by_subject attributes
+
+### Changed
+- Homework data now shows: "שיעור X: תיאור השיעורים"
+- Behavior data now shows: "שיעור X - מקצוע: סוג התנהגות (מ-מורה)"
+- Weekly plan data now shows: "שיעור X: תיאור התוכנית"
+- Dates formatted as DD/MM/YYYY for better readability
+
+## [0.1.38] - 2025-09-29
+
+### Fixed
+- Changed integration type from "hub" to "service" for better categorization
+- Fixed hub title format to show school name and semel properly
+- Hub title now displays as "נעמי שמר פתח תקוה\n413955" instead of "Mashov (413955 - 413955)"
+
+## [0.1.37] - 2025-09-29
+
+### Changed
+- Updated behavior data structure to match actual Mashov API response
+- Behavior now includes comprehensive event details: event codes, timestamps, lesson info, reporter details, and achievement data
+- Improved behavior data accuracy with proper field mapping
+
+## [0.1.36] - 2025-09-29
+
+### Changed
+- Updated homework data structure to match actual Mashov API response
+- Homework now includes lesson_id, lesson_date, lesson number, group_id, remark, and subject_name
+- Improved homework data accuracy and completeness
+
+## [0.1.35] - 2025-09-29
+
+### Added
+- Re-added weekly plan sensor with correct endpoint URL
+- Weekly plan now uses `/students/{student_id}/lessons/plans` endpoint
+- Weekly plan data includes group_id, lesson_date, lesson number, and plan description
+
+### Fixed
+- Fixed weekly plan endpoint URL to match Mashov API structure
+- Weekly plan now provides actual lesson plans data instead of 404 errors
+
+## [0.1.34] - 2025-09-29
+
+### Removed
+- Removed timetable and weekly plan sensors as they don't provide data
+- Removed timetable endpoints and related code
+- Simplified integration to focus on homework and behavior data only
+
+### Fixed
+- Fixed behavior endpoint URL from `/behaviour` to `/behave` to match Mashov API
+- Resolved 404 errors for behavior data by using correct endpoint path
+
+## [0.1.33] - 2025-09-29
+
+### Fixed
+- Fixed behavior endpoint URL from `/behaviour` to `/behave` to match Mashov API
+- Resolved 404 errors for behavior data by using correct endpoint path
+
 ## [0.1.32] - 2025-09-29
 
 ### Fixed

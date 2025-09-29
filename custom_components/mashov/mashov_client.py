@@ -72,13 +72,9 @@ class MashovClient:
         LOGIN_ENDPOINT = self._api_base + "login"
         ME_ENDPOINT    = self._api_base + "me"
         ENDPOINTS = {
-            "timetable_today": self._api_base + "students/{student_id}/timetable/day?date={date}&year={year}",
-            "weekly_plan":     self._api_base + "students/{student_id}/timetable/week?date={date}&year={year}",
             "homework":        self._api_base + "students/{student_id}/homework?from={start}&to={end}&year={year}",
-            "behavior":        self._api_base + "students/{student_id}/behaviour?from={start}&to={end}&year={year}",
-            # Alternative endpoints using groups
-            "timetable_group": self._api_base + "groups/{group_id}/timetable/day?date={date}&year={year}",
-            "weekly_group":    self._api_base + "groups/{group_id}/timetable/week?date={date}&year={year}",
+            "behavior":        self._api_base + "students/{student_id}/behave?from={start}&to={end}&year={year}",
+            "weekly_plan":     self._api_base + "students/{student_id}/lessons/plans",
         }
 
     async def async_open_session(self) -> None:
@@ -415,43 +411,11 @@ class MashovClient:
 
         async def fetch_for_student(stu):
             sid = stu["id"]
-            groups = stu.get("groups", [])
-            
-            # Try to get timetable data from groups if available
-            timetable_data = []
-            weekly_data = []
-            
-            if groups:
-                _LOGGER.info("Trying to fetch timetable from groups for student %s: %s", sid, groups)
-                for group_id in groups[:3]:  # Try first 3 groups
-                    try:
-                        group_timetable_url = ENDPOINTS["timetable_group"].format(group_id=group_id, date=day_str, year=self.year)
-                        group_weekly_url = ENDPOINTS["weekly_group"].format(group_id=group_id, date=day_str, year=self.year)
-                        
-                        async with self._session.get(group_timetable_url, headers=self._headers) as resp:
-                            if resp.status == 200:
-                                data = await resp.json()
-                                timetable_data.extend(data if isinstance(data, list) else [data])
-                                _LOGGER.info("Got timetable data from group %s for student %s", group_id, sid)
-                                break
-                    except Exception as e:
-                        _LOGGER.debug("Failed to get timetable from group %s: %s", group_id, e)
-                        
-                    try:
-                        async with self._session.get(group_weekly_url, headers=self._headers) as resp:
-                            if resp.status == 200:
-                                data = await resp.json()
-                                weekly_data.extend(data if isinstance(data, list) else [data])
-                                _LOGGER.info("Got weekly data from group %s for student %s", group_id, sid)
-                                break
-                    except Exception as e:
-                        _LOGGER.debug("Failed to get weekly data from group %s: %s", group_id, e)
             
             urls = {
-                "timetable_today": ENDPOINTS["timetable_today"].format(student_id=sid, date=day_str, year=self.year),
-                "weekly_plan":     ENDPOINTS["weekly_plan"].format(student_id=sid, date=day_str, year=self.year),
                 "homework":        ENDPOINTS["homework"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
                 "behavior":        ENDPOINTS["behavior"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
+                "weekly_plan":     ENDPOINTS["weekly_plan"].format(student_id=sid),
             }
             async def fetch(url_key: str):
                 url = urls[url_key]
@@ -485,14 +449,13 @@ class MashovClient:
                     _LOGGER.warning("Exception fetching %s for student %s: %s", url_key, sid, e)
                     return []  # Return empty list on exception
 
-            timetable, weekly, homework, behavior = await asyncio.gather(
-                fetch("timetable_today"), fetch("weekly_plan"), fetch("homework"), fetch("behavior")
+            homework, behavior, weekly_plan = await asyncio.gather(
+                fetch("homework"), fetch("behavior"), fetch("weekly_plan")
             )
             return {
-                "timetable_today": self._normalize_timetable(timetable),
-                "weekly_plan": self._normalize_weekly(weekly),
                 "homework": self._normalize_homework(homework),
                 "behavior": self._normalize_behavior(behavior),
+                "weekly_plan": self._normalize_weekly_plan(weekly_plan),
             }
 
         _LOGGER.debug("Fetching data for all students in parallel")
@@ -517,43 +480,33 @@ class MashovClient:
         return result
 
     # Normalizers
-    def _normalize_timetable(self, raw):
+    def _normalize_weekly_plan(self, raw):
         items = []
         try:
-            for it in raw or []:
+            for plan in raw or []:
                 items.append({
-                    "start": it.get("startTime") or it.get("start") or it.get("from"),
-                    "end": it.get("endTime") or it.get("end") or it.get("to"),
-                    "subject": it.get("subject") or it.get("subjectName"),
-                    "teacher": it.get("teacher") or it.get("teacherName"),
-                    "room": it.get("room") or it.get("roomName"),
+                    "group_id": plan.get("groupid"),
+                    "lesson_date": plan.get("lessondate"),
+                    "lesson": plan.get("lesson"),
+                    "plan": plan.get("plan"),
                 })
         except Exception as e:
-            _LOGGER.debug("normalize timetable failed: %s", e)
+            _LOGGER.debug("normalize weekly plan failed: %s", e)
         return items
-
-    def _normalize_weekly(self, raw):
-        if isinstance(raw, dict) and "days" in raw:
-            days = []
-            for d in raw["days"]:
-                days.append({
-                    "date": d.get("date"),
-                    "lessons": self._normalize_timetable(d.get("lessons") or d.get("items") or []),
-                })
-            return days
-        return [{"date": None, "lessons": self._normalize_timetable(raw)}]
 
     def _normalize_homework(self, raw):
         items = []
         try:
             for hw in raw or []:
                 items.append({
-                    "id": hw.get("id") or hw.get("pk"),
-                    "subject": hw.get("subject") or hw.get("subjectName"),
-                    "title": hw.get("title") or hw.get("topic") or hw.get("content"),
-                    "due_date": hw.get("dueDate") or hw.get("dateDue") or hw.get("deadline"),
-                    "notes": hw.get("notes") or hw.get("description"),
-                    "submitted": hw.get("submitted") or hw.get("isSubmitted") or False,
+                    "lesson_id": hw.get("lessonId"),
+                    "lesson_date": hw.get("lessonDate"),
+                    "lesson": hw.get("lesson"),
+                    "homework": hw.get("homework"),
+                    "group_id": hw.get("groupId"),
+                    "remark": hw.get("remark"),
+                    "student_guid": hw.get("studentGuid"),
+                    "subject_name": hw.get("subjectName"),
                 })
         except Exception as e:
             _LOGGER.debug("normalize homework failed: %s", e)
@@ -564,10 +517,24 @@ class MashovClient:
         try:
             for ev in raw or []:
                 items.append({
-                    "date": ev.get("date") or ev.get("eventDate"),
-                    "type": ev.get("type") or ev.get("category") or ev.get("behaviour"),
-                    "description": ev.get("description") or ev.get("details"),
-                    "teacher": ev.get("teacher") or ev.get("teacherName"),
+                    "student_guid": ev.get("studentGuid"),
+                    "event_code": ev.get("eventCode"),
+                    "justified": ev.get("justified"),
+                    "lesson_id": ev.get("lessonId"),
+                    "reporter_guid": ev.get("reporterGuid"),
+                    "timestamp": ev.get("timestamp"),
+                    "group_id": ev.get("groupId"),
+                    "lesson_type": ev.get("lessonType"),
+                    "lesson": ev.get("lesson"),
+                    "lesson_date": ev.get("lessonDate"),
+                    "lesson_reporter": ev.get("lessonReporter"),
+                    "achva_code": ev.get("achvaCode"),
+                    "achva_name": ev.get("achvaName"),
+                    "achva_aval": ev.get("achvaAval"),
+                    "justification_id": ev.get("justificationId"),
+                    "justification": ev.get("justification"),
+                    "reporter": ev.get("reporter"),
+                    "subject": ev.get("subject"),
                 })
         except Exception as e:
             _LOGGER.debug("normalize behavior failed: %s", e)

@@ -20,10 +20,9 @@ DEFAULT_HOMEWORK_DAYS_FORWARD = 21
 DEFAULT_DAILY_REFRESH_TIME = "02:30"
 DEFAULT_API_BASE = "https://web.mashov.info/api/"
 
-SENSOR_KEY_TIMETABLE = "timetable_today"
-SENSOR_KEY_WEEKLY_PLAN = "weekly_plan"
 SENSOR_KEY_HOMEWORK = "homework"
 SENSOR_KEY_BEHAVIOR = "behavior"
+SENSOR_KEY_WEEKLY_PLAN = "weekly_plan"
 
 DEVICE_MANUFACTURER = "Mashov (Unofficial)"
 DEVICE_MODEL = "Mashov Student Data"
