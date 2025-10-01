@@ -1,0 +1,22 @@
+# Mashov – Weekly plan table with current day highlight
+- type: markdown
+  content: >
+    {% set attr = state_attr('sensor.mashov_<student_id>_weekly_plan', 'table') %}
+    {% set html = state_attr('sensor.mashov_<student_id>_weekly_plan', 'table_html') %}
+    {% if not attr or not html %}
+    אין נתונים להצגה
+    {% else %}
+    <style>
+      :host table.mashov-week { width:100%; border-collapse:collapse; text-align:center; direction:rtl; }
+      :host table.mashov-week th, :host table.mashov-week td { border:1px solid var(--divider-color); padding:6px; }
+      :host table.mashov-week thead th { background: var(--table-header-background-color, var(--primary-color)); color: var(--text-primary-color, #fff); }
+      {% set dow = now().weekday() %}
+      {% if attr.order == 'sun' %}
+        {% set col = (dow + 1) % 7 %}
+      {% else %}
+        {% set col = dow %}
+      {% endif %}
+      :host table.mashov-week tbody tr td:nth-child({{ col + 1 }}) { background: rgba(0, 150, 136, 0.12); }
+    </style>
+    {{ html | replace('<table', '<table class="mashov-week"') }}
+    {% endif %}

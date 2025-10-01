@@ -1,0 +1,30 @@
+# Mashov – Three students side-by-side
+- type: horizontal-stack
+  cards:
+    - type: entities
+      title: Mashov – Student 11111
+      entities:
+        - entity: sensor.mashov_11111_homework
+          name: Homework
+        - entity: sensor.mashov_11111_behavior
+          name: Behavior
+        - entity: sensor.mashov_11111_weekly_plan
+          name: Weekly Plan
+    - type: entities
+      title: Mashov – Student 22222
+      entities:
+        - entity: sensor.mashov_22222_homework
+          name: Homework
+        - entity: sensor.mashov_22222_behavior
+          name: Behavior
+        - entity: sensor.mashov_22222_weekly_plan
+          name: Weekly Plan
+    - type: entities
+      title: Mashov – Student 33333
+      entities:
+        - entity: sensor.mashov_33333_homework
+          name: Homework
+        - entity: sensor.mashov_33333_behavior
+          name: Behavior
+        - entity: sensor.mashov_33333_weekly_plan
+          name: Weekly Plan

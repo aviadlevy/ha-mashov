@@ -17,9 +17,9 @@ _LOGGER = logging.getLogger(__name__)
 from .const import (
     DOMAIN,
     CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_USERNAME, CONF_PASSWORD,
-    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
+    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_API_BASE,
     CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
-    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE,
+    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_API_BASE,
     DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
 )
 from .mashov_client import MashovClient, MashovAuthError, MashovError
@@ -227,7 +227,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         options = {
             CONF_HOMEWORK_DAYS_BACK: self.config_entry.options.get(CONF_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_BACK),
             CONF_HOMEWORK_DAYS_FORWARD: self.config_entry.options.get(CONF_HOMEWORK_DAYS_FORWARD, DEFAULT_HOMEWORK_DAYS_FORWARD),
-            CONF_DAILY_REFRESH_TIME: self.config_entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_DAILY_REFRESH_TIME),
             CONF_API_BASE: self.config_entry.options.get(CONF_API_BASE, DEFAULT_API_BASE),
             CONF_SCHEDULE_TYPE: self.config_entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE),
             CONF_SCHEDULE_TIME: self.config_entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME),
@@ -238,50 +237,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         schema = vol.Schema({
             vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(int, vol.Range(min=0, max=60)),
             vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(int, vol.Range(min=1, max=120)),
-            vol.Optional(CONF_DAILY_REFRESH_TIME, default=options[CONF_DAILY_REFRESH_TIME]): str,
             vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
-            vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): SelectSelector(
-                SelectSelectorConfig(
-                    options=[
-                        {"value": "daily", "label": "יומי"},
-                        {"value": "weekly", "label": "שבועי"},
-                        {"value": "interval", "label": "כל X דקות/שעות"},
-                    ],
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            ),
+            vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): vol.In(["daily", "weekly", "interval"]),
             vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
             # Backward compat single day selector
-            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): SelectSelector(
-                SelectSelectorConfig(
-                    options=[
-                        {"value": 0, "label": "יום שני"},
-                        {"value": 1, "label": "יום שלישי"},
-                        {"value": 2, "label": "יום רביעי"},
-                        {"value": 3, "label": "יום חמישי"},
-                        {"value": 4, "label": "יום שישי"},
-                        {"value": 5, "label": "יום שבת"},
-                        {"value": 6, "label": "יום ראשון"},
-                    ],
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            ),
+            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): vol.All(int, vol.Range(min=0, max=6)),
             # New: multi days selector
-            vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): SelectSelector(
-                SelectSelectorConfig(
-                    options=[
-                        {"value": 0, "label": "יום שני"},
-                        {"value": 1, "label": "יום שלישי"},
-                        {"value": 2, "label": "יום רביעי"},
-                        {"value": 3, "label": "יום חמישי"},
-                        {"value": 4, "label": "יום שישי"},
-                        {"value": 5, "label": "יום שבת"},
-                        {"value": 6, "label": "יום ראשון"},
-                    ],
-                    multiple=True,
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            ),
+            vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): [vol.All(int, vol.Range(min=0, max=6))],
             vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
         })
         return self.async_show_form(step_id="init", data_schema=schema)

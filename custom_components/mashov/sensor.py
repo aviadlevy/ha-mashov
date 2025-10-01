@@ -133,11 +133,45 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
         try:
             from datetime import datetime, timedelta
             opts = getattr(self.coordinator, "entry", None).options if hasattr(self.coordinator, "entry") else {}
-            schedule_type = opts.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE)
-            schedule_time = opts.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
-            schedule_day = opts.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY)
-            schedule_days = opts.get(CONF_SCHEDULE_DAYS, [schedule_day])
-            schedule_interval = opts.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL)
+            # Merge YAML overrides if present
+            yaml_opts = (getattr(self.coordinator, "hass", None).data.get(DOMAIN, {}).get("yaml_options", {})
+                         if hasattr(self.coordinator, "hass") else {})
+            merged = dict(opts)
+            if yaml_opts:
+                merged.update({k: v for k, v in yaml_opts.items() if v is not None})
+            # Basic sanitization for attributes display
+            schedule_type = merged.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE)
+            if schedule_type not in ("daily", "weekly", "interval"):
+                schedule_type = DEFAULT_SCHEDULE_TYPE
+            schedule_time = str(merged.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME))
+            try:
+                hh, mm = [int(x) for x in schedule_time.split(":")]
+                if not (0 <= hh <= 23 and 0 <= mm <= 59):
+                    raise ValueError
+            except Exception:
+                schedule_time = DEFAULT_SCHEDULE_TIME
+            try:
+                schedule_day = int(merged.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY))
+            except Exception:
+                schedule_day = DEFAULT_SCHEDULE_DAY
+            raw_days = merged.get(CONF_SCHEDULE_DAYS, [schedule_day])
+            schedule_days = []
+            if isinstance(raw_days, list):
+                for d in raw_days:
+                    try:
+                        di = int(d)
+                        if 0 <= di <= 6:
+                            schedule_days.append(di)
+                    except Exception:
+                        pass
+            if not schedule_days:
+                schedule_days = [schedule_day]
+            try:
+                schedule_interval = int(merged.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL))
+                if schedule_interval < 5 or schedule_interval > 1440:
+                    schedule_interval = DEFAULT_SCHEDULE_INTERVAL
+            except Exception:
+                schedule_interval = DEFAULT_SCHEDULE_INTERVAL
 
             friendly = None
             next_time_iso = None
@@ -308,52 +342,129 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
         }
 
     def _format_weekly_plan_data(self, items: list) -> Dict[str, Any]:
-        """Format weekly plan data for display"""
+        """Format weekly plan data for display, including a weekly table view."""
         from datetime import datetime
-        
-        by_date = {}
-        by_subject = {}
-        
+
+        by_date: Dict[str, list] = {}
+        by_subject: Dict[str, list] = {}
+
+        # Collect normalized entries for table construction
+        normalized: list[Dict[str, Any]] = []
+
         for item in items:
-            # Format date
+            # Backwards compatible fields
+            tt = item.get("timeTable") or {}
+            gd = item.get("groupDetails") or {}
+
+            day_raw = tt.get("day", item.get("day"))
+            lesson_raw = tt.get("lesson", item.get("lesson"))
+            room = (tt.get("roomNum") or item.get("room") or "").strip()
+            subject = gd.get("subjectName") or item.get("subject") or gd.get("groupName") or "מקצוע לא ידוע"
+
+            teacher = None
+            teachers = gd.get("groupTeachers") or []
+            if isinstance(teachers, list) and teachers:
+                teacher = (teachers[0] or {}).get("teacherName")
+            if not teacher:
+                teacher = item.get("teacher") or "מורה לא ידוע"
+
+            # For legacy formatting by date (if exists)
             date_str = item.get("lesson_date", "")
             if date_str:
                 try:
                     date_obj = datetime.fromisoformat(date_str.replace("T00:00:00", ""))
                     formatted_date = date_obj.strftime("%d/%m/%Y")
-                except:
+                except Exception:
                     formatted_date = date_str
-            else:
-                formatted_date = "תאריך לא ידוע"
-            
-            # Group by date
-            if formatted_date not in by_date:
-                by_date[formatted_date] = []
-            
-            # Group by subject (using group_id as subject for now)
-            group_id = item.get("group_id", "קבוצה לא ידועה")
-            subject = f"קבוצה {group_id}"
-            if subject not in by_subject:
-                by_subject[subject] = []
-            
-            # Format plan entry
-            plan_text = item.get("plan", "")
-            lesson = item.get("lesson", "")
-            
-            entry = f"שיעור {lesson}: {plan_text}"
-            
-            by_date[formatted_date].append(entry)
-            by_subject[subject].append(entry)
-        
+                if formatted_date not in by_date:
+                    by_date[formatted_date] = []
+                by_date[formatted_date].append(f"שיעור {lesson_raw}: {subject}")
+
+            by_subject.setdefault(subject, []).append(f"שיעור {lesson_raw}{' ('+room+')' if room else ''}")
+
+            try:
+                day_i = int(day_raw) if day_raw is not None else None
+                lesson_i = int(lesson_raw) if lesson_raw is not None else None
+            except Exception:
+                day_i, lesson_i = None, None
+
+            normalized.append({
+                "day": day_i,
+                "lesson": lesson_i,
+                "subject": subject,
+                "teacher": teacher,
+                "room": room,
+            })
+
+        # Determine day mapping and headers
+        day_values = [n["day"] for n in normalized if isinstance(n.get("day"), int)]
+        uses_sunday_based = False
+        if day_values and 0 not in day_values and min(day_values) >= 1:
+            # Assume 1..7 (Sun..Sat). Many datasets in Mashov weekly use this.
+            uses_sunday_based = True
+
+        headers_sun = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
+        headers_mon = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"]
+
+        if uses_sunday_based:
+            headers = headers_sun
+            to_col = lambda d: max(0, min(6, int(d) - 1))  # 1->0 ... 7->6
+        else:
+            headers = headers_mon
+            to_col = lambda d: max(0, min(6, (int(d) + 6) % 7))  # 0(Mon)->6? We want order Mon..Sun mapped to 0..6 index of headers_mon
+            # Explanation: headers_mon starts at Monday, but rendered order is Mon..Sun; mapping (d) to index accordingly
+
+        # Determine max lessons
+        max_lessons = max([n["lesson"] or 0 for n in normalized] + [8])
+        if max_lessons < 6:
+            max_lessons = 6
+        if max_lessons > 12:
+            max_lessons = 12
+
+        # Build table matrix
+        table_rows: list[list[str]] = [["" for _ in range(7)] for _ in range(max_lessons)]
+        for n in normalized:
+            if not isinstance(n.get("day"), int) or not isinstance(n.get("lesson"), int):
+                continue
+            col = to_col(n["day"])
+            row = max(1, min(max_lessons, n["lesson"])) - 1
+            text = n["subject"]
+            if n.get("teacher"):
+                text += f" – {n['teacher']}"
+            if n.get("room"):
+                text += f" ({n['room']})"
+            table_rows[row][col] = text
+
+        # HTML table (works inside Markdown card)
+        html = [
+            '<table style="width:100%; border-collapse:collapse; text-align:center; direction:rtl;">',
+            '<thead><tr>' + ''.join(f'<th style="border:1px solid var(--divider-color); padding:4px; background:var(--table-header-background-color, var(--primary-color)) ; color: var(--text-primary-color, #fff);">{h}</th>' for h in headers) + '</tr></thead>',
+            '<tbody>'
+        ]
+        for i, row in enumerate(table_rows, start=1):
+            html.append('<tr>')
+            for cell in row:
+                cell_html = cell.replace('\n', '<br/>') if cell else ''
+                html.append(f'<td style="border:1px solid var(--divider-color); padding:6px; vertical-align:top;">{cell_html}</td>')
+            html.append('</tr>')
+        html.append('</tbody></table>')
+        table_html = ''.join(html)
+
         # Create summary
         total_plans = len(items)
         subjects_count = len(by_subject)
         dates_count = len(by_date)
-        
-        summary = f"יש {total_plans} תוכניות שיעורים ב-{subjects_count} קבוצות על פני {dates_count} תאריכים"
-        
+        summary = f"יש {total_plans} שיעורים מתוכננים ב-{subjects_count} מקצועות על פני {dates_count or 1} ימים"
+
         return {
             "summary": summary,
             "by_date": by_date,
-            "by_subject": by_subject
+            "by_subject": by_subject,
+            "table": {
+                "headers": headers,
+                "rows": table_rows,
+                "max_lessons": max_lessons,
+                "order": "sun" if uses_sunday_based else "mon",
+            },
+            "table_html": table_html,
         }

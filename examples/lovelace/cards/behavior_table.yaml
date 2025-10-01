@@ -1,0 +1,35 @@
+# Mashov – Behavior events table
+- type: markdown
+  content: >
+    {% set items = state_attr('sensor.mashov_<student_id>_behavior', 'items') %}
+    {% if not items %}
+    אין נתונים להצגה
+    {% else %}
+    <style>
+      :host table.mashov-beh { width:100%; border-collapse:collapse; direction: rtl; }
+      :host table.mashov-beh th, :host table.mashov-beh td { border:1px solid var(--divider-color); padding:6px; text-align: start; }
+      :host table.mashov-beh thead th { background: var(--table-header-background-color, var(--primary-color)); color: var(--text-primary-color, #fff); }
+    </style>
+    <table class="mashov-beh">
+      <thead>
+        <tr>
+          <th>תאריך</th>
+          <th>מקצוע</th>
+          <th>סוג אירוע</th>
+          <th>מורה</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+          {% set d = it.get('lesson_date') or it.get('timestamp') %}
+          {% set date = d.split('T')[0].split('-')[2] ~ '/' ~ d.split('T')[0].split('-')[1] ~ '/' ~ d.split('T')[0].split('-')[0] if d else '' %}
+          <tr>
+            <td>{{ date }}</td>
+            <td>{{ it.get('subject', '') }}</td>
+            <td>{{ it.get('achva_name') or it.get('achvaName') }}</td>
+            <td>{{ it.get('reporter', '') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}

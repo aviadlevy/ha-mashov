@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.1.55] - 2025-10-01
+
+### Added
+- Weekly Plan HTML table rendering (`table_html`) + advanced Lovelace Markdown example
+- Example Lovelace cards for Homework and Behavior (list-by-date and tables)
+
+### Changed
+- README: link to CHANGELOG instead of embedding; clarified Lovelace include paths (`/config/lovelace/cards/examples/`)
+- Options UI: replaced advanced selectors with basic types; added YAML overrides support
+- Logging and sanitization: clearer scheduler logs and defaults for invalid values
+
+### Removed
+- Deprecated `daily_refresh_time` option (use `schedule_time`)
+
 ## [0.1.46] - 2025-09-29
 
 ## [0.1.47] - 2025-09-29

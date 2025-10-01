@@ -1,0 +1,37 @@
+# Mashov – Homework table
+- type: markdown
+  content: >
+    {% set items = state_attr('sensor.mashov_<student_id>_homework', 'items') %}
+    {% if not items %}
+    אין נתונים להצגה
+    {% else %}
+    <style>
+      :host table.mashov-hw { width:100%; border-collapse:collapse; direction: rtl; }
+      :host table.mashov-hw th, :host table.mashov-hw td { border:1px solid var(--divider-color); padding:6px; text-align: start; }
+      :host table.mashov-hw thead th { background: var(--table-header-background-color, var(--primary-color)); color: var(--text-primary-color, #fff); }
+    </style>
+    <table class="mashov-hw">
+      <thead>
+        <tr>
+          <th>תאריך</th>
+          <th>מקצוע</th>
+          <th>שיעור</th>
+          <th>שיעורי בית</th>
+          <th>הערה</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+          {% set ds = it.get('lesson_date') %}
+          {% set date = ds.split('T')[0].split('-')[2] ~ '/' ~ ds.split('T')[0].split('-')[1] ~ '/' ~ ds.split('T')[0].split('-')[0] if ds else '' %}
+          <tr>
+            <td>{{ date }}</td>
+            <td>{{ it.get('subject_name') or it.get('subjectName') or it.get('subject') }}</td>
+            <td>{{ it.get('lesson') }}</td>
+            <td>{{ it.get('homework') }}</td>
+            <td>{{ it.get('remark') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}

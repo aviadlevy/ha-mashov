@@ -1,0 +1,28 @@
+# Mashov – Behavior events grouped by date
+- type: markdown
+  content: >
+    {% set by_date = state_attr('sensor.mashov_<student_id>_behavior', 'formatted_by_date') %}
+    {% set summary = state_attr('sensor.mashov_<student_id>_behavior', 'formatted_summary') %}
+    {% if not by_date %}
+    אין נתונים להצגה
+    {% else %}
+    <style>
+      :host .mashov-beh { direction: rtl; }
+      :host .mashov-beh h3 { margin: 0 0 8px; font-size: 16px; }
+      :host .mashov-beh .date { font-weight: 600; margin-top: 12px; }
+      :host .mashov-beh ul { margin: 4px 0 12px; padding-inline-start: 18px; }
+      :host .mashov-beh li { margin: 2px 0; }
+    </style>
+    <div class="mashov-beh">
+      <h3>סיכום אירועי התנהגות</h3>
+      <div style="opacity:.8; margin-bottom:8px;">{{ summary }}</div>
+      {% for d, items in by_date.items() %}
+        <div class="date">{{ d }}</div>
+        <ul>
+          {% for it in items %}
+            <li>{{ it }}</li>
+          {% endfor %}
+        </ul>
+      {% endfor %}
+    </div>
+    {% endif %}

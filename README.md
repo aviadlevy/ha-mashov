@@ -1,7 +1,6 @@
 # Mashov – Home Assistant Integration (HACS)
 
 Unofficial integration for **משו"ב (Mashov)** that logs into the student portal and exposes data as sensors:
-- **Timetable (Today)**
 - **Weekly Plan**
 - **Homework**
 - **Behavior**
@@ -10,27 +9,9 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 
 ---
 
-## ✨ What's new in v0.1.31
-- **Fixed authentication errors** – resolved `'dict' object has no attribute 'startswith'` error preventing login
-- **Improved version detection** – added fallback to read version from manifest.json if VERSION file not found
-- **Enhanced error handling** – better authentication flow and CSRF token management
-- **Stability improvements** – more robust login process with detailed logging for debugging
-- **Hub display enhancement** – shows both school name and semel number for better identification
 
-## ✨ Previous features (v0.1.5+)
-- **Multiple kids automatically** – the integration fetches **all children** linked to the account and creates **4 sensors per child**.
-- **No "Year" field** – the current **Israeli school year** is detected automatically (Sep–Dec ⇒ `year + 1`, otherwise `year`).
-- **Fast school picker with autocomplete** – select your school from a **dropdown** with optimized performance (type to filter). If the catalog can't be loaded, a text box fallback appears and we auto-resolve the Semel.
-- **API base override (Options)** – for environments that use a different host (e.g., mobile API).
-- **Enhanced logging** – comprehensive debug logs for troubleshooting authentication and data fetching issues.
-- **Improved error handling** – better timeout and connection error handling with detailed error messages.
-- **Fixed Config Flow issues** – resolved 400 Bad Request errors and improved school selection performance.
 
-### ⚠️ Breaking changes
-- **`student_name` was removed** from config. The integration now discovers **all** kids; sensors are grouped and named by child.
-- Entity `unique_id`s now include the **numeric student id** for stability. If you previously renamed entities, you may need to re-link them.
 
----
 
 ## 🧩 Features
 - Simple **Config Flow (UI)** via Settings → Devices & Services → Add Integration → **Mashov**.
@@ -67,13 +48,30 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 - **Daily refresh time**: default `02:30`
 - **API base**: default `https://web.mashov.info/api/` (override if your deployment differs)
 
+### Configuration via configuration.yaml (optional)
+You can also configure the refresh schedule via YAML. Values in YAML override the Options UI.
+
+```yaml
+mashov:
+  # Scheduling
+  schedule_type: daily        # daily | weekly | interval
+  schedule_time: "14:00"      # for daily/weekly
+  schedule_day: 0             # 0=Monday ... 6=Sunday
+  schedule_days: [0, 2, 4]    # optional multiple days for weekly
+  schedule_interval: 120      # minutes (for interval mode)
+
+  # Other (optional)
+  homework_days_back: 7
+  homework_days_forward: 21
+  api_base: "https://web.mashov.info/api/"
+```
+
 ---
 
 ## 🧠 Entities (per child)
 
-For each child **N**, four sensors are created:
+For each child **N**, three sensors are created:
 
-- **Timetable (Today)** – `sensor.mashov_<student_id>_timetable_today`
 - **Weekly Plan** – `sensor.mashov_<student_id>_weekly_plan`
 - **Homework** – `sensor.mashov_<student_id>_homework`
 - **Behavior** – `sensor.mashov_<student_id>_behavior`
@@ -96,6 +94,39 @@ data:
 ```
 
 ---
+
+## 🧱 Lovelace Cards (Examples)
+You can quickly add cards to display Mashov data. Use `!include` to import ready-made cards.
+
+Files:
+- `examples/lovelace/cards/per_student_stack.yaml`
+- `examples/lovelace/cards/three_students_row.yaml`
+- `examples/lovelace/cards/refresh_all_button.yaml`
+- `examples/lovelace/cards/weekly_plan_table_advanced.yaml`
+- `examples/lovelace/cards/behavior_list_by_date.yaml`
+- `examples/lovelace/cards/behavior_table.yaml`
+- `examples/lovelace/cards/homework_list_by_date.yaml`
+- `examples/lovelace/cards/homework_table.yaml`
+
+Copy these files into your Home Assistant config at `/config/lovelace/cards/examples/`, then reference them like this:
+
+Note: HACS installs only `custom_components/`. Copy the example card files to your `/config/examples/` (or paste the YAML into UI cards) if you want to use `!include`.
+
+Minimal per-student stack (via include):
+```yaml
+views:
+  - title: Mashov
+    cards:
+      - !include lovelace/cards/examples/per_student_stack.yaml
+```
+
+Advanced weekly plan with current day highlight (via include):
+```yaml
+views:
+  - title: Mashov
+    cards:
+      - !include lovelace/cards/examples/weekly_plan_table_advanced.yaml
+```
 
 ## 🔍 Troubleshooting
 
@@ -125,3 +156,8 @@ logger:
 ## 📄 License
 MIT © 2025
 
+
+---
+
+## 📜 Changelog
+See the full changelog in `CHANGELOG.md`.

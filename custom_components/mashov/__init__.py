@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -12,14 +13,39 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_YEAR, CONF_USERNAME, CONF_PASSWORD,  # student_name removed
-    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_DAILY_REFRESH_TIME, CONF_API_BASE,
+    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_API_BASE,
     CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
-    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_DAILY_REFRESH_TIME, DEFAULT_API_BASE,
+    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_API_BASE,
     DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
 )
 from .mashov_client import MashovClient, MashovAuthError, MashovError
 
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_SCHEMA = vol.Schema({
+    DOMAIN: vol.Schema({
+        vol.Optional(CONF_SCHEDULE_TYPE): vol.In(["daily", "weekly", "interval"]),
+        vol.Optional(CONF_SCHEDULE_TIME): str,
+        vol.Optional(CONF_SCHEDULE_DAY): vol.All(int, vol.Range(min=0, max=6)),
+        vol.Optional(CONF_SCHEDULE_DAYS): [vol.All(int, vol.Range(min=0, max=6))],
+        vol.Optional(CONF_SCHEDULE_INTERVAL): vol.All(int, vol.Range(min=5, max=1440)),
+        vol.Optional(CONF_HOMEWORK_DAYS_BACK): vol.All(int, vol.Range(min=0, max=60)),
+        vol.Optional(CONF_HOMEWORK_DAYS_FORWARD): vol.All(int, vol.Range(min=1, max=120)),
+        vol.Optional(CONF_API_BASE): str,
+    })
+}, extra=vol.ALLOW_EXTRA)
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up integration from YAML (optional)."""
+    hass.data.setdefault(DOMAIN, {})
+    yaml_conf = config.get(DOMAIN) or {}
+    # Store YAML options globally; applied to all entries as overrides
+    hass.data[DOMAIN]["yaml_options"] = yaml_conf
+    if yaml_conf:
+        _LOGGER.info("Loaded YAML options for Mashov: %s", {k: yaml_conf.get(k) for k in yaml_conf.keys()})
+    else:
+        _LOGGER.debug("No YAML options provided for Mashov")
+    return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Print version info
@@ -162,7 +188,6 @@ async def async_get_options_flow(config_entry: ConfigEntry):
 
 async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
     from .const import (
-        DEFAULT_DAILY_REFRESH_TIME, CONF_DAILY_REFRESH_TIME,
         CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_INTERVAL,
         DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
     )
@@ -182,8 +207,79 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
         except Exception as e:
             _LOGGER.debug("Error cancelling previous schedules: %s", e)
 
-    _LOGGER.debug("Scheduler options snapshot: %s", dict(entry.options))
-    schedule_type = entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE)
+    yaml_opts = hass.data.get(DOMAIN, {}).get("yaml_options", {})
+    merged_options = dict(entry.options)
+    # YAML should override UI options when provided
+    if yaml_opts:
+        merged_options.update({k: v for k, v in yaml_opts.items() if v is not None})
+
+    # Sanitize and normalize options
+    def _sanitize_int(val, default, min_v=None, max_v=None, key_name=""):
+        try:
+            ival = int(val)
+            if min_v is not None and ival < min_v:
+                raise ValueError("below minimum")
+            if max_v is not None and ival > max_v:
+                raise ValueError("above maximum")
+            return ival
+        except Exception:
+            if key_name:
+                _LOGGER.warning("Invalid %s=%s. Falling back to default=%s", key_name, val, default)
+            return default
+
+    def _sanitize_time_str(val, default, key_name="schedule_time"):
+        try:
+            text = str(val)
+            parts = text.split(":")
+            if len(parts) != 2:
+                raise ValueError("format")
+            hh = _sanitize_int(parts[0], None, 0, 23)
+            mm = _sanitize_int(parts[1], None, 0, 59)
+            if hh is None or mm is None:
+                raise ValueError("range")
+            return f"{hh:02d}:{mm:02d}"
+        except Exception:
+            _LOGGER.warning("Invalid %s=%s. Using default=%s", key_name, val, default)
+            return default
+
+    sanitized = {}
+    # schedule_type
+    schedule_type = str(merged_options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE))
+    if schedule_type not in ("daily", "weekly", "interval"):
+        _LOGGER.warning("Invalid schedule_type=%s. Using default=%s", schedule_type, DEFAULT_SCHEDULE_TYPE)
+        schedule_type = DEFAULT_SCHEDULE_TYPE
+    sanitized[CONF_SCHEDULE_TYPE] = schedule_type
+
+    # schedule_time
+    schedule_time = merged_options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME)
+    schedule_time = _sanitize_time_str(schedule_time, DEFAULT_SCHEDULE_TIME, "schedule_time")
+    sanitized[CONF_SCHEDULE_TIME] = schedule_time
+
+    # weekly days
+    schedule_day_single = _sanitize_int(
+        merged_options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY),
+        DEFAULT_SCHEDULE_DAY, 0, 6, key_name="schedule_day"
+    )
+    raw_days = merged_options.get(CONF_SCHEDULE_DAYS)
+    days_list = []
+    if isinstance(raw_days, list):
+        for d in raw_days:
+            days_list.append(_sanitize_int(d, None, 0, 6, key_name="schedule_days[]"))
+        days_list = [d for d in days_list if d is not None]
+    if not days_list:
+        days_list = [schedule_day_single]
+    sanitized[CONF_SCHEDULE_DAY] = schedule_day_single
+    sanitized[CONF_SCHEDULE_DAYS] = days_list
+
+    # interval
+    interval_minutes = _sanitize_int(
+        merged_options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
+        DEFAULT_SCHEDULE_INTERVAL, 5, 1440, key_name="schedule_interval"
+    )
+    sanitized[CONF_SCHEDULE_INTERVAL] = interval_minutes
+
+    _LOGGER.debug("Scheduler options (sanitized): %s", sanitized)
+    schedule_type = sanitized[CONF_SCHEDULE_TYPE]
     _LOGGER.debug("Resolved schedule_type=%s", schedule_type)
     
     @callback
@@ -197,22 +293,19 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
     
     if schedule_type == "daily":
         # Daily refresh at specific time
-        daily_time = entry.options.get(CONF_SCHEDULE_TIME, entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_SCHEDULE_TIME))
-        _LOGGER.debug("Daily mode selected, using time=%s (schedule_time or daily_refresh_time)", daily_time)
+        daily_time = sanitized[CONF_SCHEDULE_TIME]
+        _LOGGER.info("Scheduling daily refresh at %s", daily_time)
         try:
             hh, mm = [int(x) for x in daily_time.split(":")]
         except Exception:
             hh, mm = 2, 30
         unsubs.append(async_track_time_change(hass, _refresh_data, hour=hh, minute=mm, second=0))
-        _LOGGER.info("Scheduled daily refresh at %02d:%02d", hh, mm)
         
     elif schedule_type == "weekly":
         # Weekly refresh on specific day(s) and time
-        schedule_days = entry.options.get(CONF_SCHEDULE_DAYS, None)
-        schedule_day_single = entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY)
-        days = schedule_days if isinstance(schedule_days, list) and len(schedule_days) > 0 else [schedule_day_single]
-        schedule_time = entry.options.get(CONF_SCHEDULE_TIME, entry.options.get(CONF_DAILY_REFRESH_TIME, DEFAULT_SCHEDULE_TIME))
-        _LOGGER.debug("Weekly mode selected, days=%s, time=%s", days, schedule_time)
+        days = sanitized[CONF_SCHEDULE_DAYS]
+        schedule_time = sanitized[CONF_SCHEDULE_TIME]
+        _LOGGER.info("Scheduling weekly refresh on days=%s at %s", days, schedule_time)
         try:
             hh, mm = [int(x) for x in schedule_time.split(":")]
         except Exception:
@@ -224,7 +317,7 @@ async def _async_setup_daily_refresh(hass: HomeAssistant, entry: ConfigEntry):
         
     elif schedule_type == "interval":
         # Interval refresh every X minutes
-        interval_minutes = entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL)
+        interval_minutes = sanitized[CONF_SCHEDULE_INTERVAL]
         interval = timedelta(minutes=interval_minutes)
         unsubs.append(async_track_time_interval(hass, _refresh_data, interval))
         _LOGGER.info("Scheduled interval refresh every %d minutes", interval_minutes)

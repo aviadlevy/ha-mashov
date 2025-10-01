@@ -10,7 +10,6 @@ CONF_PASSWORD = "password"
 # CONF_STUDENT_NAME removed
 CONF_HOMEWORK_DAYS_BACK = "homework_days_back"
 CONF_HOMEWORK_DAYS_FORWARD = "homework_days_forward"
-CONF_DAILY_REFRESH_TIME = "daily_refresh_time"  # "HH:MM"
 CONF_API_BASE = "api_base"
 CONF_SCHEDULE_TYPE = "schedule_type"  # "daily", "weekly", "interval"
 CONF_SCHEDULE_TIME = "schedule_time"  # "HH:MM" for daily/weekly
@@ -22,7 +21,6 @@ PLATFORMS = ["sensor"]
 
 DEFAULT_HOMEWORK_DAYS_BACK = 7
 DEFAULT_HOMEWORK_DAYS_FORWARD = 21
-DEFAULT_DAILY_REFRESH_TIME = "14:00"
 DEFAULT_API_BASE = "https://web.mashov.info/api/"
 DEFAULT_SCHEDULE_TYPE = "daily"
 DEFAULT_SCHEDULE_TIME = "14:00"
