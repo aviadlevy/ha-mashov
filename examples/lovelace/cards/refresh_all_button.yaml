@@ -1,8 +1,10 @@
 # Mashov – Refresh all hubs button
-- type: button
-  name: רענן את כל ה-Hubs
-  icon: mdi:refresh
-  tap_action:
-    action: call-service
-    service: mashov.refresh_now
-    service_data: {}
+show_name: true
+show_icon: true
+type: button
+name: 🔃 עדכן מידע
+icon: mdi:cast-education
+tap_action:
+  action: call-service
+  service: mashov.refresh_now
+  data: {}

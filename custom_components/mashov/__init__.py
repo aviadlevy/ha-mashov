@@ -151,11 +151,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         tasks = []
         if entry_id:
             ce = hass.data[DOMAIN].get(entry_id)
-            if ce:
+            if isinstance(ce, dict) and "coordinator" in ce:
                 tasks.append(ce["coordinator"].async_request_refresh())
+            else:
+                _LOGGER.debug("Entry %s not found or missing coordinator; skipping", entry_id)
         else:
-            for ce in hass.data[DOMAIN].values():
-                tasks.append(ce["coordinator"].async_request_refresh())
+            for maybe_entry in hass.data.get(DOMAIN, {}).values():
+                if isinstance(maybe_entry, dict) and "coordinator" in maybe_entry:
+                    tasks.append(maybe_entry["coordinator"].async_request_refresh())
+                else:
+                    # Ignore non-entry values (e.g., yaml_options)
+                    continue
         if tasks:
             _LOGGER.debug("Executing %d refresh tasks", len(tasks))
             await asyncio.gather(*tasks)

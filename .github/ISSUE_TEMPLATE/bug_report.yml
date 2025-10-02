@@ -1,0 +1,97 @@
+name: "Bug report"
+description: "Something isn’t working as expected"
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you open a new issue, please **search existing issues** to avoid duplicates.
+
+  - type: input
+    id: short_title
+    attributes:
+      label: "Title"
+      description: "A short, descriptive title of the problem."
+      placeholder: "e.g., 'Schedule not running at configured time'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: system_health
+    attributes:
+      label: "System Health details"
+      description: "Paste the output from the System Health card in Home Assistant."
+      placeholder: "Go to Developer Tools → Info → System Health → Copy, then paste here."
+      render: shell
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist"
+      options:
+        - label: "I have enabled debug logging for my installation."
+          required: true
+        - label: "I have filled out the issue template to the best of my ability."
+          required: true
+        - label: "This issue only contains **one** problem."
+          required: true
+        - label: "This is **not** a duplicate of an existing issue."
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Describe the issue"
+      description: "A clear and concise description of what the issue is."
+      placeholder: "What happened? What did you expect to happen?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: "Reproduction steps"
+      description: "Without steps to reproduce, it’s hard to fix. Be specific."
+      placeholder: |
+        1. …
+        2. …
+        3. …
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: debug_logs
+    attributes:
+      label: "Debug logs"
+      description: "Include logs from startup to the moment of the issue. See the Logger docs above."
+      render: shell
+      placeholder: |
+        <paste relevant logs enclosed in triple backticks>
+        ```text
+        …
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: "Diagnostics dump"
+      description: "Drag-and-drop the generated diagnostics file into this comment box (GitHub will attach it). If not possible, paste relevant JSON here."
+      render: json
+      placeholder: "{ … }"
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        _Remember, contributions should follow this repository’s contributing guidelines._
+
+
+

@@ -81,6 +81,9 @@ class MashovClient:
             "homework":        self._api_base + "students/{student_id}/homework?from={start}&to={end}&year={year}",
             "behavior":        self._api_base + "students/{student_id}/behave?from={start}&to={end}&year={year}",
             "weekly_plan":     self._api_base + "students/{student_id}/lessons/plans",
+            "timetable":       self._api_base + "students/{student_id}/timetable",
+            "holidays":        self._api_base + "holidays",
+            "lessons_history": self._api_base + "students/{student_id}/lessons/history",
         }
 
     async def async_open_session(self) -> None:
@@ -423,6 +426,8 @@ class MashovClient:
                 "homework":        ENDPOINTS["homework"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
                 "behavior":        ENDPOINTS["behavior"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
                 "weekly_plan":     ENDPOINTS["weekly_plan"].format(student_id=sid),
+                "timetable":       ENDPOINTS["timetable"].format(student_id=sid),
+                "lessons_history": ENDPOINTS["lessons_history"].format(student_id=sid),
             }
             async def fetch(url_key: str):
                 url = urls[url_key]
@@ -456,18 +461,38 @@ class MashovClient:
                     _LOGGER.warning("Exception fetching %s for student %s: %s", url_key, sid, e)
                     return []  # Return empty list on exception
 
-            homework, behavior, weekly_plan = await asyncio.gather(
-                fetch("homework"), fetch("behavior"), fetch("weekly_plan")
+            homework, behavior, weekly_plan, timetable, lessons_history = await asyncio.gather(
+                fetch("homework"), fetch("behavior"), fetch("weekly_plan"), fetch("timetable"), fetch("lessons_history")
             )
             return {
                 "homework": self._normalize_homework(homework),
                 "behavior": self._normalize_behavior(behavior),
                 "weekly_plan": self._normalize_weekly_plan(weekly_plan),
+                "timetable": self._normalize_timetable(timetable),
+                "lessons_history": self._normalize_lessons_history(lessons_history),
             }
 
         _LOGGER.debug("Fetching data for all students in parallel")
         # Use asyncio.gather for parallel execution
         results = await asyncio.gather(*(fetch_for_student(s) for s in self._students))
+
+        # Fetch holidays once (not per student)
+        holidays_raw = []
+        try:
+            url = ENDPOINTS.get("holidays")
+            if url:
+                _LOGGER.debug("Fetching holidays from: %s", url)
+                async with self._session.get(url, headers=self._headers) as resp:
+                    if resp.status >= 400:
+                        _LOGGER.warning("Holidays endpoint returned %s", resp.status)
+                        holidays_raw = []
+                    else:
+                        holidays_raw = await resp.json(content_type=None)
+        except Exception as e:
+            _LOGGER.debug("Failed fetching holidays: %s", e)
+            holidays_raw = []
+
+        holidays = self._normalize_holidays(holidays_raw)
         by_slug = { self._students[i]["slug"]: results[i] for i in range(len(self._students)) }
 
         result = {
@@ -481,6 +506,7 @@ class MashovClient:
                 } for s in self._students
             ],
             "by_slug": by_slug,
+            "holidays": holidays,
         }
         
         _LOGGER.debug("Data fetch completed for %d students", len(self._students))
@@ -499,6 +525,29 @@ class MashovClient:
                 })
         except Exception as e:
             _LOGGER.debug("normalize weekly plan failed: %s", e)
+        return items
+
+    def _normalize_timetable(self, raw):
+        """Keep timetable structure (timeTable/groupDetails) mostly intact for UI formatting."""
+        items = []
+        try:
+            if isinstance(raw, list):
+                for it in raw:
+                    # Ensure keys exist with sane defaults
+                    items.append({
+                        "timeTable": (it or {}).get("timeTable") or {},
+                        "groupDetails": (it or {}).get("groupDetails") or {},
+                    })
+            elif isinstance(raw, dict):
+                # Some deployments may wrap data
+                data_list = raw.get("items") or raw.get("data") or []
+                for it in data_list:
+                    items.append({
+                        "timeTable": (it or {}).get("timeTable") or {},
+                        "groupDetails": (it or {}).get("groupDetails") or {},
+                    })
+        except Exception as e:
+            _LOGGER.debug("normalize timetable failed: %s", e)
         return items
 
     def _normalize_homework(self, raw):
@@ -545,4 +594,40 @@ class MashovClient:
                 })
         except Exception as e:
             _LOGGER.debug("normalize behavior failed: %s", e)
+        return items
+
+    def _normalize_holidays(self, raw):
+        items = []
+        try:
+            for h in raw or []:
+                items.append({
+                    "id": h.get("id"),
+                    "name": h.get("hollyDayName") or h.get("holidayName") or h.get("name"),
+                    "start": h.get("startDate"),
+                    "end": h.get("endDate"),
+                })
+        except Exception as e:
+            _LOGGER.debug("normalize holidays failed: %s", e)
+        return items
+
+    def _normalize_lessons_history(self, raw):
+        items = []
+        try:
+            for r in raw or []:
+                log = r.get("lessonLog") or {}
+                items.append({
+                    "lesson_id": log.get("lessonID"),
+                    "group_id": log.get("groupId"),
+                    "lesson_date": log.get("lessonDate"),
+                    "lesson": log.get("lesson"),
+                    "took_place": log.get("tookPlace"),
+                    "remark": log.get("remark"),
+                    "homework": log.get("homeWork"),
+                    "lessontype": log.get("lessontype"),
+                    "reporter_guid": log.get("reporterGuid"),
+                    "group_name": r.get("groupName"),
+                    "subject_name": r.get("subjectName"),
+                })
+        except Exception as e:
+            _LOGGER.debug("normalize lessons history failed: %s", e)
         return items

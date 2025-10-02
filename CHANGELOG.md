@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Added
+- TBD
+
+### Changed
+- TBD
+
+### Fixed
+- TBD
+
+## [0.1.56] - 2025-10-02
+
+### Added
+- Re-introduced Timetable sensor using `/students/{student_id}/timetable` with unified weekly table formatting
+- Global Holidays support using `/holidays` endpoint with `sensor.mashov_holidays`
+- Lessons History per-student using `/students/{student_id}/lessons/history`
+- Exposed `formatted_table_html` attribute for weekly plan/timetable rendering in Markdown cards
+
+### Changed
+- README updated to reflect new sensors and to list only existing Lovelace example cards
+- `mashov.refresh_now`: calling without `entry_id` now refreshes all hubs (clarified in docs)
+
+### Fixed
+- `mashov.refresh_now` no longer raises KeyError when non-entry values (e.g., `yaml_options`) are present in integration data
+
 ## [0.1.55] - 2025-10-01
 
 ### Added

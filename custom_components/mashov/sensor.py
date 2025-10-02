@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 
 from .const import (
     DOMAIN,
-    SENSOR_KEY_HOMEWORK, SENSOR_KEY_BEHAVIOR, SENSOR_KEY_WEEKLY_PLAN,
+    SENSOR_KEY_HOMEWORK, SENSOR_KEY_BEHAVIOR, SENSOR_KEY_WEEKLY_PLAN, SENSOR_KEY_TIMETABLE, SENSOR_KEY_LESSONS_HISTORY,
     DEVICE_MANUFACTURER, DEVICE_MODEL,
     CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
     DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL,
@@ -40,7 +40,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             MashovListSensor(coord, sid, slug, name, SENSOR_KEY_HOMEWORK, "Homework", "homework"),
             MashovListSensor(coord, sid, slug, name, SENSOR_KEY_BEHAVIOR, "Behavior", "behavior"),
             MashovListSensor(coord, sid, slug, name, SENSOR_KEY_WEEKLY_PLAN, "Weekly Plan", "weekly_plan"),
+            MashovListSensor(coord, sid, slug, name, SENSOR_KEY_TIMETABLE, "Timetable", "timetable"),
+            MashovListSensor(coord, sid, slug, name, SENSOR_KEY_LESSONS_HISTORY, "Lessons History", "lessons_history"),
         ])
+
+    # Global holidays sensor (not per-student)
+    entities.append(MashovHolidaysSensor(coord))
     
     _LOGGER.info("Adding %d Mashov sensor entities", len(entities))
     async_add_entities(entities)
@@ -88,6 +93,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             "formatted_summary": formatted_data["summary"],
             "formatted_by_date": formatted_data["by_date"],
             "formatted_by_subject": formatted_data["by_subject"],
+            **({"formatted_table_html": formatted_data.get("table_html")} if isinstance(formatted_data, dict) and formatted_data.get("table_html") else {}),
             # Refresh schedule
             "schedule_type": schedule_info.get("type"),
             "schedule_time": schedule_info.get("time"),
@@ -121,6 +127,10 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             return self._format_behavior_data(items)
         elif self._data_key == "weekly_plan":
             return self._format_weekly_plan_data(items)
+        elif self._data_key == "timetable":
+            return self._format_timetable_data(items)
+        elif self._data_key == "lessons_history":
+            return self._format_lessons_history(items)
         else:
             return {
                 "summary": f"יש {len(items)} פריטים",
@@ -467,4 +477,105 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
                 "order": "sun" if uses_sunday_based else "mon",
             },
             "table_html": table_html,
+        }
+
+    def _format_timetable_data(self, items: list) -> Dict[str, Any]:
+        """Format timetable using the same renderer as weekly plan."""
+        # Reuse weekly plan formatting which supports timeTable/groupDetails
+        data = self._format_weekly_plan_data(items)
+        # Keep summary as-is or optionally tweak text; leaving as-is for consistency
+        return data
+
+    def _format_lessons_history(self, items: list) -> Dict[str, Any]:
+        from datetime import datetime
+        by_date = {}
+        by_subject = {}
+        for it in items:
+            ds = it.get("lesson_date")
+            try:
+                d = datetime.fromisoformat((ds or "").replace("T00:00:00", ""))
+                date_key = d.strftime("%d/%m/%Y")
+            except Exception:
+                date_key = (ds or "").split("T")[0]
+            subj = it.get("subject_name") or it.get("group_name") or "מקצוע לא ידוע"
+            lesson = it.get("lesson")
+            took = it.get("took_place")
+            remark = (it.get("remark") or "").strip()
+            hw = (it.get("homework") or "").strip()
+
+            text = f"שיעור {lesson} - {subj}"
+            if remark:
+                text += f": {remark}"
+            if hw:
+                text += f" (ש.ב: {hw})"
+            if took is False:
+                text += " [לא התקיים]"
+
+            by_date.setdefault(date_key, []).append(text)
+            by_subject.setdefault(subj, []).append(text)
+
+        summary = f"יש {len(items)} שיעורים היסטוריים"
+        return {
+            "summary": summary,
+            "by_date": by_date,
+            "by_subject": by_subject,
+        }
+
+
+class MashovHolidaysSensor(CoordinatorEntity, SensorEntity):
+    _attr_icon = "mdi:calendar-star"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_name = "Mashov Holidays"
+        self._attr_unique_id = "mashov_holidays"
+
+    @property
+    def native_value(self):
+        # number of holidays in the dataset
+        data = self.coordinator.data or {}
+        items = data.get("holidays") or []
+        return len(items)
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        from datetime import datetime
+        data = self.coordinator.data or {}
+        items = data.get("holidays") or []
+
+        # Build formatted summary and by_date
+        by_date = {}
+        for h in items:
+            start = h.get("start") or ""
+            end = h.get("end") or ""
+            name = h.get("name") or "חג/חופשה"
+            # format dates dd/mm/yyyy
+            def fmt(dt):
+                if not dt:
+                    return ""
+                try:
+                    d = datetime.fromisoformat(dt.replace("T00:00:00", ""))
+                    return d.strftime("%d/%m/%Y")
+                except Exception:
+                    return dt.split("T")[0]
+            start_f = fmt(start)
+            end_f = fmt(end)
+            key = f"{start_f}–{end_f}" if end_f and end_f != start_f else start_f
+            by_date.setdefault(key, []).append(name)
+
+        summary = f"יש {len(items)} חגים/חופשות"
+        return {
+            "formatted_summary": summary,
+            "formatted_by_date": by_date,
+            "items": items,
+            "last_update": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, "holidays")},
+            "name": "Mashov – Holidays",
+            "manufacturer": DEVICE_MANUFACTURER,
+            "model": DEVICE_MODEL,
         }

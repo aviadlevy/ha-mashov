@@ -30,6 +30,9 @@ DEFAULT_SCHEDULE_INTERVAL = 60  # 60 minutes
 SENSOR_KEY_HOMEWORK = "homework"
 SENSOR_KEY_BEHAVIOR = "behavior"
 SENSOR_KEY_WEEKLY_PLAN = "weekly_plan"
+SENSOR_KEY_TIMETABLE = "timetable"
+SENSOR_KEY_HOLIDAYS = "holidays"
+SENSOR_KEY_LESSONS_HISTORY = "lessons_history"
 
 DEVICE_MANUFACTURER = "Mashov (Unofficial)"
 DEVICE_MODEL = "Mashov Student Data"

@@ -1,0 +1,14 @@
+blank_issues_disabled: true
+contact_links:
+  - name: Home Assistant – System Health docs
+    url: https://www.home-assistant.io/more-info/system-health#github-issues
+    about: How to grab the System Health details.
+  - name: Logger integration (debug logs)
+    url: https://www.home-assistant.io/integrations/logger/
+    about: How to enable and collect debug logs.
+  - name: Diagnostics integration
+    url: https://www.home-assistant.io/integrations/diagnostics/
+    about: How to generate and attach a diagnostics dump.
+
+
+

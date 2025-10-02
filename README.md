@@ -4,6 +4,9 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 - **Weekly Plan**
 - **Homework**
 - **Behavior**
+- **Timetable** (weekly timetable per student)
+- **Lessons History** (historical lessons/logs per student)
+- Global **Holidays** (school holidays calendar)
 
 > This project is **community-made** and not affiliated with Mashov. Use at your own risk and follow your school's policies.
 
@@ -70,16 +73,22 @@ mashov:
 
 ## 🧠 Entities (per child)
 
-For each child **N**, three sensors are created:
+For each child **N**, these sensors are created:
 
 - **Weekly Plan** – `sensor.mashov_<student_id>_weekly_plan`
 - **Homework** – `sensor.mashov_<student_id>_homework`
 - **Behavior** – `sensor.mashov_<student_id>_behavior`
+- **Timetable** – `sensor.mashov_<student_id>_timetable`
+- **Lessons History** – `sensor.mashov_<student_id>_lessons_history`
 
 **State** = number of items.  
-**Attributes** include full item lists (e.g., lessons with `start`, `end`, `subject`, `teacher`, `room`; homework with `subject`, `title`, `due_date`, `notes`, `submitted`, etc.).
+**Attributes** (common): `items`, `formatted_summary`, `formatted_by_date`, `formatted_by_subject` (and for timetable: also table helpers).
 
-> Tip: Use `{ state_attr('sensor.mashov_12345_homework', 'items') }` in templates to access the list.
+> Tip: Use `{ state_attr('sensor.mashov_<id>_homework', 'items') }` to access raw lists.
+
+### Global Entities
+- **Holidays** – `sensor.mashov_holidays`  
+  State = number of holidays. Attributes: `items`, `formatted_summary`, `formatted_by_date`.
 
 ---
 
@@ -93,39 +102,53 @@ data:
   entry_id: YOUR_ENTRY_ID  # optional; if omitted, all entries refresh
 ```
 
+Calling without `entry_id` refreshes all configured Mashov hubs.
+
 ---
 
 ## 🧱 Lovelace Cards (Examples)
 You can quickly add cards to display Mashov data. Use `!include` to import ready-made cards.
 
 Files:
-- `examples/lovelace/cards/per_student_stack.yaml`
-- `examples/lovelace/cards/three_students_row.yaml`
-- `examples/lovelace/cards/refresh_all_button.yaml`
 - `examples/lovelace/cards/weekly_plan_table_advanced.yaml`
 - `examples/lovelace/cards/behavior_list_by_date.yaml`
-- `examples/lovelace/cards/behavior_table.yaml`
 - `examples/lovelace/cards/homework_list_by_date.yaml`
-- `examples/lovelace/cards/homework_table.yaml`
+- `examples/lovelace/cards/refresh_all_button.yaml`
 
 Copy these files into your Home Assistant config at `/config/lovelace/cards/examples/`, then reference them like this:
 
 Note: HACS installs only `custom_components/`. Copy the example card files to your `/config/examples/` (or paste the YAML into UI cards) if you want to use `!include`.
 
-Minimal per-student stack (via include):
-```yaml
-views:
-  - title: Mashov
-    cards:
-      - !include lovelace/cards/examples/per_student_stack.yaml
-```
-
-Advanced weekly plan with current day highlight (via include):
+Advanced weekly plan (table) via include:
 ```yaml
 views:
   - title: Mashov
     cards:
       - !include lovelace/cards/examples/weekly_plan_table_advanced.yaml
+```
+
+Behavior events grouped by date:
+```yaml
+views:
+  - title: Mashov
+    cards:
+      - !include lovelace/cards/examples/behavior_list_by_date.yaml
+```
+
+Homework grouped by date:
+```yaml
+views:
+  - title: Mashov
+    cards:
+      - !include lovelace/cards/examples/homework_list_by_date.yaml
+```
+
+Refresh all hubs button:
+```yaml
+views:
+  - title: Mashov
+    cards:
+      - !include lovelace/cards/examples/refresh_all_button.yaml
 ```
 
 ## 🔍 Troubleshooting
