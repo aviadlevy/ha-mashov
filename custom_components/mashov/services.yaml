@@ -8,3 +8,69 @@ refresh_now:
       required: false
       selector:
         text: {}
+
+set_options:
+  name: "עדכון אפשרויות (ללא Configure)"
+  description: "עדכן אפשרויות של ההאב דרך Service Call כאשר כפתור Configure לא זמין"
+  fields:
+    schedule_type:
+      name: "סוג לוח זמנים"
+      description: "daily | weekly | interval"
+      required: false
+      selector:
+        select:
+          options:
+            - daily
+            - weekly
+            - interval
+    schedule_time:
+      name: "שעת רענון"
+      description: "HH:MM עבור daily/weekly"
+      required: false
+      selector:
+        text: {}
+    schedule_day:
+      name: "יום בשבוע (יחיד)"
+      description: "0=Mon .. 6=Sun (תאימות לאחור)"
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 6
+          mode: box
+    schedule_days:
+      name: "ימים בשבוע (רבים)"
+      description: "רשימת ימים 0..6 עבור weekly"
+      required: false
+      selector:
+        object: {}
+    schedule_interval:
+      name: "מרווח בדקות"
+      description: "עבור interval בלבד (5..1440)"
+      required: false
+      selector:
+        number:
+          min: 5
+          max: 1440
+          mode: box
+    homework_days_back:
+      name: "ימים אחורה לשיעורי בית"
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 60
+          mode: box
+    homework_days_forward:
+      name: "ימים קדימה לשיעורי בית"
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 120
+          mode: box
+    api_base:
+      name: "API Base"
+      required: false
+      selector:
+        text: {}

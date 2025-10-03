@@ -404,10 +404,14 @@ class MashovClient:
 
     async def async_fetch_all(self) -> Dict[str, Any]:
         _LOGGER.info("=== FETCHING ALL DATA ===")
-        if not self._session:
-            raise MashovError("Session closed")
+        # Ensure session and authentication are available (lazy login)
+        if not self._session or self._session.closed:
+            await self.async_open_session()
+        if not self._students or "X-Csrf-Token" not in self._headers:
+            _LOGGER.debug("No students/csrf in memory – performing lazy login")
+            await self.async_init(None)
         
-        # Ensure we have CSRF token in headers
+        # Ensure we have CSRF token in headers (after lazy login should exist)
         if "X-Csrf-Token" not in self._headers:
             _LOGGER.warning("No CSRF token found in headers for data fetching")
 

@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime
+import time
 
 import voluptuous as vol  # type: ignore
 from homeassistant.config_entries import ConfigEntry  # type: ignore
 from homeassistant.core import HomeAssistant, ServiceCall, callback  # type: ignore
 from homeassistant.helpers.event import async_track_time_change  # type: ignore
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed  # type: ignore
+from homeassistant.helpers.storage import Store  # type: ignore
 
 from .const import (
     DOMAIN,
@@ -123,15 +125,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         api_base=entry.options.get(CONF_API_BASE, DEFAULT_API_BASE),
     )
 
-    try:
-        await asyncio.create_task(client.async_init(hass))
-    except Exception as e:
-        _LOGGER.error("Failed to initialize Mashov client: %s", e)
-        await client.async_close()
-        raise
-
     coordinator = MashovCoordinator(hass, client, entry)
-    await coordinator.async_config_entry_first_refresh()
+
+    # Set up simple cache store per entry to avoid immediate API calls on startup
+    store: Store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.cache")
+    cached: dict | None = None
+    try:
+        cached = await store.async_load()
+        if isinstance(cached, dict) and cached.get("data"):
+            coordinator.data = cached.get("data")
+            _LOGGER.debug("Loaded cached data for entry %s (ts=%s)", entry.entry_id, cached.get("last_refresh_ts"))
+    except Exception as e:
+        _LOGGER.debug("No cache available for entry %s: %s", entry.entry_id, e)
 
     hass.data[DOMAIN][entry.entry_id] = {
         "client": client,
@@ -139,7 +144,52 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         "unsub_daily": None,
     }
 
-    # Configure scheduler per options/YAML
+    # Decide whether to perform initial refresh now
+    # Merge options + YAML to find schedule type
+    yaml_opts = hass.data.get(DOMAIN, {}).get("yaml_options", {}) or {}
+    merged_opts = dict(entry.options)
+    if yaml_opts:
+        merged_opts.update({k: v for k, v in yaml_opts.items() if v is not None})
+
+    schedule_type = str(merged_opts.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE))
+    if schedule_type not in ("daily", "weekly", "interval"):
+        schedule_type = DEFAULT_SCHEDULE_TYPE
+
+    # Cooldown in seconds to skip startup refresh if recently refreshed
+    cooldown_seconds = 6 * 60 * 60  # 6 hours
+    last_ts = None
+    try:
+        last_ts = float(cached.get("last_refresh_ts")) if isinstance(cached, dict) and cached.get("last_refresh_ts") else None
+    except Exception:
+        last_ts = None
+
+    now_s = time.time()
+    recently_refreshed = last_ts is not None and (now_s - last_ts) < cooldown_seconds
+
+    # Perform startup refresh only when needed
+    do_startup_refresh = True
+    if schedule_type in ("daily", "weekly") and recently_refreshed:
+        do_startup_refresh = False
+        _LOGGER.info("Skipping startup refresh (type=%s, last=%s within cooldown)", schedule_type, datetime.fromtimestamp(last_ts).isoformat(timespec="seconds") if last_ts else "n/a")
+
+    if do_startup_refresh:
+        try:
+            await asyncio.create_task(client.async_init(hass))
+            await coordinator.async_config_entry_first_refresh()
+            # Save cache after successful refresh
+            try:
+                await store.async_save({
+                    "last_refresh_ts": time.time(),
+                    "data": coordinator.data,
+                })
+            except Exception as e:
+                _LOGGER.debug("Failed saving cache: %s", e)
+        except Exception as e:
+            _LOGGER.error("Failed to perform startup refresh: %s", e)
+            await client.async_close()
+            raise
+
+    # Configure scheduler per options/YAML (also ensures timers; interval mode sets polling)
     await _async_setup_scheduler(hass, entry)
 
     # Reconfigure when options change
@@ -167,6 +217,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if DOMAIN not in hass.services.async_services():
         hass.services.async_register(DOMAIN, "refresh_now", _handle_refresh)
+
+        # Service: set_options – allows updating options without Configure UI
+        async def _handle_set_options(call: ServiceCall):
+            opts = dict(entry.options)
+            payload = dict(call.data or {})
+            # Keep only known option keys
+            known_keys = {
+                CONF_HOMEWORK_DAYS_BACK,
+                CONF_HOMEWORK_DAYS_FORWARD,
+                CONF_API_BASE,
+                CONF_SCHEDULE_TYPE,
+                CONF_SCHEDULE_TIME,
+                CONF_SCHEDULE_DAY,
+                CONF_SCHEDULE_DAYS,
+                CONF_SCHEDULE_INTERVAL,
+            }
+            for k, v in list(payload.items()):
+                if k not in known_keys:
+                    payload.pop(k, None)
+            opts.update(payload)
+            hass.config_entries.async_update_entry(entry, options=opts)
+            _LOGGER.info("Options updated via service for entry %s: %s", entry.title, list(payload.keys()))
+
+        hass.services.async_register(DOMAIN, "set_options", _handle_set_options)
 
     return True
 
@@ -280,6 +354,15 @@ async def _async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry):
     async def _refresh_data(now=None):
         _LOGGER.debug("Scheduled refresh fired at %s", now)
         await coordinator.async_request_refresh()
+        # Persist cache after each scheduled refresh
+        try:
+            store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.cache")
+            await store.async_save({
+                "last_refresh_ts": time.time(),
+                "data": coordinator.data,
+            })
+        except Exception as e:
+            _LOGGER.debug("Failed saving cache after refresh: %s", e)
 
     if schedule_type == "interval":
         # Use *only* coordinator.update_interval (no extra timer)
