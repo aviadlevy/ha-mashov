@@ -44,8 +44,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             MashovListSensor(coord, sid, slug, name, SENSOR_KEY_LESSONS_HISTORY, "Lessons History", "lessons_history"),
         ])
 
-    # Global holidays sensor (not per-student)
-    entities.append(MashovHolidaysSensor(coord))
+    # Global holidays sensor (per entry; ensure unique_id per entry)
+    entities.append(MashovHolidaysSensor(coord, entry.entry_id))
     
     _LOGGER.info("Adding %d Mashov sensor entities", len(entities))
     async_add_entities(entities)
@@ -525,10 +525,11 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
 class MashovHolidaysSensor(CoordinatorEntity, SensorEntity):
     _attr_icon = "mdi:calendar-star"
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator, entry_id: str):
         super().__init__(coordinator)
+        self._entry_id = entry_id
         self._attr_name = "Mashov Holidays"
-        self._attr_unique_id = "mashov_holidays"
+        self._attr_unique_id = f"mashov_{entry_id}_holidays"
 
     @property
     def native_value(self):
@@ -574,7 +575,7 @@ class MashovHolidaysSensor(CoordinatorEntity, SensorEntity):
     @property
     def device_info(self):
         return {
-            "identifiers": {(DOMAIN, "holidays")},
+            "identifiers": {(DOMAIN, f"holidays_{self._entry_id}")},
             "name": "Mashov – Holidays",
             "manufacturer": DEVICE_MANUFACTURER,
             "model": DEVICE_MODEL,
