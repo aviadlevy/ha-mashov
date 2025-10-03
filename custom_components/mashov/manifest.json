@@ -1,7 +1,7 @@
 {
   "domain": "mashov",
   "name": "Mashov",
-  "version": "0.1.57",
+  "version": "0.1.58",
   "documentation": "https://github.com/NirBY/ha-mashov",
   "issue_tracker": "https://github.com/NirBY/ha-mashov/issues",
   "dependencies": [],
