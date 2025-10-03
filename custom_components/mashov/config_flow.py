@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.selector import (
+import voluptuous as vol  # type: ignore[import-not-found]
+from homeassistant import config_entries  # type: ignore[import-not-found]
+from homeassistant.data_entry_flow import FlowResult  # type: ignore[import-not-found]
+from homeassistant.helpers.selector import (  # type: ignore[import-not-found]
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -219,10 +219,31 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry):
         self.config_entry = config_entry
+        try:
+            _LOGGER.debug(
+                "OptionsFlowHandler init for entry='%s' (id=%s) – current options keys: %s",
+                getattr(config_entry, "title", ""),
+                getattr(config_entry, "entry_id", ""),
+                list(dict(getattr(config_entry, "options", {})).keys()),
+            )
+        except Exception as e:
+            _LOGGER.debug("OptionsFlowHandler init logging failed: %s", e)
 
     async def async_step_init(self, user_input=None) -> FlowResult:
+        _LOGGER.debug(
+            "Options flow step_init called (entry_id=%s). user_input=%s",
+            getattr(self.config_entry, "entry_id", ""),
+            user_input,
+        )
         if user_input is not None:
+            _LOGGER.info("Options submitted for '%s' (id=%s): %s",
+                        getattr(self.config_entry, "title", ""),
+                        getattr(self.config_entry, "entry_id", ""),
+                        user_input)
             return self.async_create_entry(title="", data=user_input)
+
+        current_options = dict(self.config_entry.options or {})
+        _LOGGER.debug("Building options schema from current options: %s", current_options)
 
         options = {
             CONF_HOMEWORK_DAYS_BACK: self.config_entry.options.get(CONF_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_BACK),
@@ -234,6 +255,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             CONF_SCHEDULE_DAYS: self.config_entry.options.get(CONF_SCHEDULE_DAYS, [DEFAULT_SCHEDULE_DAY]),
             CONF_SCHEDULE_INTERVAL: self.config_entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
         }
+        _LOGGER.debug("Options defaults resolved: %s", options)
         schema = vol.Schema({
             vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(int, vol.Range(min=0, max=60)),
             vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(int, vol.Range(min=1, max=120)),
@@ -246,4 +268,5 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): [vol.All(int, vol.Range(min=0, max=6))],
             vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
         })
+        _LOGGER.debug("Options schema built for entry '%s' (id=%s)", getattr(self.config_entry, "title", ""), getattr(self.config_entry, "entry_id", ""))
         return self.async_show_form(step_id="init", data_schema=schema)
