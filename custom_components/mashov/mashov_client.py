@@ -4,12 +4,15 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import date, timedelta
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, TYPE_CHECKING
 import re
 from urllib.parse import urlencode
 
-import aiohttp
-from homeassistant.core import HomeAssistant
+import aiohttp  # type: ignore[import]
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant  # type: ignore[import]  # pyright: ignore[reportMissingImports]
+else:
+    HomeAssistant = Any
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
