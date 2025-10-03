@@ -51,6 +51,12 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 - **Daily refresh time**: default `02:30`
 - **API base**: default `https://web.mashov.info/api/` (override if your deployment differs)
 
+#### Important note about night-time polling
+- Pulling data at night may trigger email notifications from Mashov about account activity/logins. If this is undesirable:
+  - Prefer scheduling the daily/weekly refresh to daytime hours (e.g., `14:00`).
+  - Use the Options screen or YAML to set `schedule_type` and `schedule_time` accordingly.
+  - Avoid long-running `interval` mode during overnight hours.
+
 ### Configuration via configuration.yaml (optional)
 You can also configure the refresh schedule via YAML. Values in YAML override the Options UI.
 
