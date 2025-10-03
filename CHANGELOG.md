@@ -11,6 +11,17 @@
 ### Fixed
 - TBD
 
+## [0.1.61-beta.7] - 2025-10-04 (Pre-release)
+
+### Added
+- TBD
+
+### Changed
+- TBD
+
+### Fixed
+- TBD
+
 ## [0.1.61-beta.6] - 2025-10-04 (Pre-release)
 
 ### Added
