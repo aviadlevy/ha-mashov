@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name to release/edit (e.g., v0.1.61-beta.2)'
+        required: true
+      prerelease:
+        description: 'Mark as pre-release (true/false). If empty, auto-detect by tag suffix.'
+        required: false
+        default: ''
 
 jobs:
   release:
@@ -14,21 +23,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve tag name
+        id: vars
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Determine prerelease flag
         id: flags
         shell: bash
         run: |
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          INPUT_PRERELEASE="${{ github.event.inputs.prerelease }}"
+          if [[ -n "$INPUT_PRERELEASE" ]]; then
+            echo "prerelease=$INPUT_PRERELEASE" >> "$GITHUB_OUTPUT"
           else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            if [[ "${{ steps.vars.outputs.tag }}" == *-* ]]; then
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: Release ${{ steps.vars.outputs.tag }}
           body_path: CHANGELOG.md
           prerelease: ${{ steps.flags.outputs.prerelease }}
           draft: false
