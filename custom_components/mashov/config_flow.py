@@ -243,11 +243,37 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             user_input,
         )
         if user_input is not None:
+            # Normalize: accept both legacy single day and new multi-days selector
+            normalized = dict(user_input)
+            try:
+                if CONF_SCHEDULE_DAYS in normalized:
+                    raw_days = normalized.get(CONF_SCHEDULE_DAYS) or []
+                    casted = []
+                    for v in raw_days:
+                        try:
+                            casted.append(max(0, min(6, int(v))))
+                        except Exception:
+                            pass
+                    if casted:
+                        normalized[CONF_SCHEDULE_DAYS] = sorted(set(casted))
+                # If missing multi-days but legacy exists, promote
+                if CONF_SCHEDULE_DAYS not in normalized and CONF_SCHEDULE_DAY in normalized:
+                    try:
+                        d = int(normalized.get(CONF_SCHEDULE_DAY))
+                    except Exception:
+                        d = DEFAULT_SCHEDULE_DAY
+                    normalized[CONF_SCHEDULE_DAYS] = [max(0, min(6, d))]
+                # Drop legacy key
+                if CONF_SCHEDULE_DAYS in normalized and CONF_SCHEDULE_DAY in normalized:
+                    normalized.pop(CONF_SCHEDULE_DAY, None)
+            except Exception as e:
+                _LOGGER.debug("Options normalization failed: %s", e)
+
             _LOGGER.info("Options submitted for '%s' (id=%s): %s",
                         getattr(self.config_entry, "title", ""),
                         getattr(self.config_entry, "entry_id", ""),
-                        user_input)
-            return self.async_create_entry(title="", data=user_input)
+                        normalized)
+            return self.async_create_entry(title="", data=normalized)
 
         current_options = dict(self.config_entry.options or {})
         _LOGGER.debug("Building options schema from current options: %s", current_options)
@@ -269,8 +295,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
             vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): vol.In(["daily", "weekly", "interval"]),
             vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
-            # Backward compat single day selector (keep plain int)
-            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): int,
+            # Hide legacy single-day field by not including it in the schema
             # Multi days selector via HA SelectSelector (multiple)
             vol.Optional(CONF_SCHEDULE_DAYS, default=[str(d) for d in options[CONF_SCHEDULE_DAYS]]): SelectSelector(
                 SelectSelectorConfig(

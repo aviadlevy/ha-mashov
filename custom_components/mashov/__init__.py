@@ -148,6 +148,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Merge options + YAML to find schedule type
     yaml_opts = hass.data.get(DOMAIN, {}).get("yaml_options", {}) or {}
     merged_opts = dict(entry.options)
+
+    # Migration: normalize schedule_days and drop legacy schedule_day
+    try:
+        migrated = False
+        # If only legacy single day exists, promote to list
+        if CONF_SCHEDULE_DAYS not in merged_opts and CONF_SCHEDULE_DAY in merged_opts:
+            try:
+                single = int(merged_opts.get(CONF_SCHEDULE_DAY))
+            except Exception:
+                single = DEFAULT_SCHEDULE_DAY
+            merged_opts[CONF_SCHEDULE_DAYS] = [max(0, min(6, single))]
+            migrated = True
+        # If schedule_days exists with strings, cast to ints and clamp 0..6
+        if CONF_SCHEDULE_DAYS in merged_opts and isinstance(merged_opts.get(CONF_SCHEDULE_DAYS), list):
+            casted = []
+            for v in merged_opts.get(CONF_SCHEDULE_DAYS) or []:
+                try:
+                    casted.append(max(0, min(6, int(v))))
+                except Exception:
+                    pass
+            if casted:
+                merged_opts[CONF_SCHEDULE_DAYS] = sorted(set(casted))
+                migrated = True
+        # Remove legacy key if we have schedule_days
+        if CONF_SCHEDULE_DAYS in merged_opts and CONF_SCHEDULE_DAY in merged_opts:
+            merged_opts.pop(CONF_SCHEDULE_DAY, None)
+            migrated = True
+        if migrated:
+            hass.config_entries.async_update_entry(entry, options=merged_opts)
+            _LOGGER.info("Migrated options: normalized schedule_days and dropped legacy schedule_day for entry %s", entry.title)
+    except Exception as e:
+        _LOGGER.debug("Options migration skipped: %s", e)
     if yaml_opts:
         merged_opts.update({k: v for k, v in yaml_opts.items() if v is not None})
 
