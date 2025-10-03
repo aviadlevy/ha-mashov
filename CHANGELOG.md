@@ -11,6 +11,14 @@
 ### Fixed
 - TBD
 
+## [0.1.61-beta.1] - 2025-10-03
+
+### Added
+- Translations: Added Options (schedule) UI strings in `translations/he.json` and `translations/en.json`.
+
+### Changed
+- Config labels: switched config field label from `school_id` to `school_name` in translations to match the form.
+
 ## [0.1.60] - 2025-10-03
 
 ### Fixed
