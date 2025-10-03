@@ -126,6 +126,9 @@ views:
     cards:
       - !include lovelace/cards/examples/weekly_plan_table_advanced.yaml
 ```
+Example preview:
+
+<p align="left"><img src="examples/screenshots/weekly_plan_table_advanced.png" alt="Weekly timetable + plan + holidays" width="50%" style="max-width:50%; height:auto;" /></p>
 
 Behavior events grouped by date:
 ```yaml
@@ -134,6 +137,9 @@ views:
     cards:
       - !include lovelace/cards/examples/behavior_list_by_date.yaml
 ```
+Example preview:
+
+<p align="left"><img src="examples/screenshots/behavior_list_by_date.png" alt="Behavior grouped by date" width="30%" style="max-width:30%; height:auto;" /></p>
 
 Homework grouped by date:
 ```yaml
@@ -142,6 +148,9 @@ views:
     cards:
       - !include lovelace/cards/examples/homework_list_by_date.yaml
 ```
+Example preview:
+
+<p align="left"><img src="examples/screenshots/homework_list_by_date.png" alt="Homework grouped by date" width="30%" style="max-width:30%; height:auto;" /></p>
 
 Refresh all hubs button:
 ```yaml
