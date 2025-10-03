@@ -420,10 +420,23 @@ async def _async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry):
 
         elif schedule_type == "weekly":
             _LOGGER.info("Weekly mode: days=%s at %02d:%02d", days, hh, mm)
-            for d in days:
-                unsubs.append(
-                    async_track_time_change(hass, _refresh_data, weekday=int(d), hour=hh, minute=mm, second=0)
-                )
+            @callback
+            async def _maybe_refresh_weekly(now=None):
+                try:
+                    today_idx = datetime.now().weekday()
+                except Exception:
+                    try:
+                        # Fallback to UTC if needed
+                        today_idx = datetime.utcnow().weekday()  # type: ignore[attr-defined]
+                    except Exception:
+                        today_idx = -1
+                if today_idx in days:
+                    await _refresh_data(now)
+                else:
+                    _LOGGER.debug("Weekly mode: skipping refresh (today=%s not in %s)", today_idx, days)
+
+            # Schedule once daily at the specified time; gate by weekday inside the callback
+            unsubs.append(async_track_time_change(hass, _maybe_refresh_weekly, hour=hh, minute=mm, second=0))
 
     hass.data[DOMAIN][entry.entry_id]["unsub_daily"] = unsubs
 
