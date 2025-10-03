@@ -170,6 +170,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def async_get_options_flow(config_entry: ConfigEntry):
+    try:
+        _LOGGER.debug(
+            "async_get_options_flow requested (entry_id=%s, title='%s')",
+            getattr(config_entry, "entry_id", ""),
+            getattr(config_entry, "title", ""),
+        )
+    except Exception:
+        pass
     from .config_flow import OptionsFlowHandler
     return OptionsFlowHandler(config_entry)
 

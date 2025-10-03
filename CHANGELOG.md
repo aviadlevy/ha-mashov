@@ -11,6 +11,11 @@
 ### Fixed
 - TBD
 
+## [0.1.59] - 2025-10-03
+
+### Changed
+- הוספת לוג ב-`async_get_options_flow` לזיהוי קריאת ה-Options Flow ב-UI
+
 ## [0.1.58] - 2025-10-03
 
 ### Changed
