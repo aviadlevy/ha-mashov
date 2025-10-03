@@ -11,6 +11,24 @@
 ### Fixed
 - TBD
 
+## [0.1.58] - 2025-10-03
+
+### Changed
+- Release workflow: מצרף עכשיו `README.md` ו-`examples/screenshots/**` כרכיבי ריליס אוטומטיים
+
+### Fixed
+- README וצילומי מסך הועלו לריפו ונכללים מריליסים חדשים
+
+## [0.1.57] - 2025-10-03
+
+### Added
+- הוספת תלות `voluptuous` ל-`manifest.json` כדי לפתור שגיאת ייבוא בסביבת HA
+
+### Fixed
+- `config_flow.py`: השתקת type hints עבור ייבואי Home Assistant ו-`voluptuous` כדי לנקות אזהרות IDE
+- `__init__.py`: אימות ויישור לינט, ללא שגיאות
+- דוגמת Lovelace `weekly_plan_table_advanced.yaml` עודכנה
+
 ## [0.1.56] - 2025-10-02
 
 ### Added
