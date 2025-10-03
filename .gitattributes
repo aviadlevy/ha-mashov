@@ -1,0 +1,26 @@
+# Normalize line endings to LF for source and docs
+*.py text eol=lf
+*.pyw text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+
+# Keep PowerShell scripts with CRLF on Windows
+*.ps1 text eol=crlf
+
+# Treat images and archives as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.zip binary
+*.ico binary
+
