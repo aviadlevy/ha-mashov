@@ -155,22 +155,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if schedule_type not in ("daily", "weekly", "interval"):
         schedule_type = DEFAULT_SCHEDULE_TYPE
 
-    # Cooldown in seconds to skip startup refresh if recently refreshed
-    cooldown_seconds = 6 * 60 * 60  # 6 hours
+    # Determine if to perform startup refresh at all
+    # For daily/weekly schedules we avoid any startup refresh (defer to timers or manual service)
+    # For interval we do a startup refresh to warm up data
+    cooldown_seconds = 6 * 60 * 60  # used only for interval
     last_ts = None
     try:
         last_ts = float(cached.get("last_refresh_ts")) if isinstance(cached, dict) and cached.get("last_refresh_ts") else None
     except Exception:
         last_ts = None
 
-    now_s = time.time()
-    recently_refreshed = last_ts is not None and (now_s - last_ts) < cooldown_seconds
-
-    # Perform startup refresh only when needed
-    do_startup_refresh = True
-    if schedule_type in ("daily", "weekly") and recently_refreshed:
+    do_startup_refresh = (schedule_type == "interval")
+    if schedule_type == "interval" and last_ts is not None and (time.time() - last_ts) < cooldown_seconds:
         do_startup_refresh = False
-        _LOGGER.info("Skipping startup refresh (type=%s, last=%s within cooldown)", schedule_type, datetime.fromtimestamp(last_ts).isoformat(timespec="seconds") if last_ts else "n/a")
+        _LOGGER.info("Skipping startup refresh in interval mode due to cooldown (last=%s)", datetime.fromtimestamp(last_ts).isoformat(timespec="seconds"))
+    if schedule_type in ("daily", "weekly"):
+        _LOGGER.info("Startup refresh disabled for schedule_type=%s (defer to timers or manual service)", schedule_type)
 
     if do_startup_refresh:
         try:

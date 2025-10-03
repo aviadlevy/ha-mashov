@@ -5,6 +5,7 @@ import asyncio
 import logging
 import voluptuous as vol  # type: ignore[import-not-found]
 from homeassistant import config_entries  # type: ignore[import-not-found]
+from homeassistant.core import callback  # type: ignore[import-not-found]
 from homeassistant.data_entry_flow import FlowResult  # type: ignore[import-not-found]
 from homeassistant.helpers.selector import (  # type: ignore[import-not-found]
     SelectSelector,
@@ -216,6 +217,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
         return self.async_show_form(step_id="pick_school", data_schema=schema, errors=errors)
 
+    # Ensure HA can discover options flow via the ConfigFlow class (for cores that expect it)
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        return OptionsFlowHandler(config_entry)
+
 class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry):
         self.config_entry = config_entry
@@ -270,3 +277,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         })
         _LOGGER.debug("Options schema built for entry '%s' (id=%s)", getattr(self.config_entry, "title", ""), getattr(self.config_entry, "entry_id", ""))
         return self.async_show_form(step_id="init", data_schema=schema)
+
+
+# Backward/compatibility helper: expose options flow factory from this module as well
+@callback
+def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+    return OptionsFlowHandler(config_entry)

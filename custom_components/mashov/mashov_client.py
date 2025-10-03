@@ -296,20 +296,20 @@ class MashovClient:
                     # Extract CSRF token from response headers
                     csrf_token = resp.headers.get('x-csrf-token') or resp.headers.get('X-Csrf-Token')
                     if csrf_token:
-                        _LOGGER.info("Found CSRF token: %s", csrf_token)
+                        _LOGGER.debug("Found CSRF token: %s", csrf_token)
                         self._headers["X-Csrf-Token"] = csrf_token
                     else:
                         _LOGGER.warning("No CSRF token found in response headers")
                     
                     # If we have accessToken data (even if it's a dict), we can proceed
-                    _LOGGER.info("Checking authentication data...")
-                    _LOGGER.info("Has accessToken: %s", bool(data.get("accessToken")))
-                    _LOGGER.info("Has credential: %s", bool(data.get("credential")))
+                    _LOGGER.debug("Checking authentication data...")
+                    _LOGGER.debug("Has accessToken: %s", bool(data.get("accessToken")))
+                    _LOGGER.debug("Has credential: %s", bool(data.get("credential")))
                     
                     # Log the type of accessToken to help debug
                     access_token = data.get("accessToken")
                     if access_token:
-                        _LOGGER.info("accessToken type: %s", type(access_token))
+                        _LOGGER.debug("accessToken type: %s", type(access_token))
                         if isinstance(access_token, dict):
                             _LOGGER.info("accessToken is dict with keys: %s", list(access_token.keys()))
                         elif isinstance(access_token, str):
