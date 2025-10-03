@@ -49,6 +49,7 @@ jobs:
           fi
 
       - name: Create or update GitHub Release
+        if: ${{ steps.flags.outputs.prerelease == 'false' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
@@ -57,4 +58,18 @@ jobs:
           prerelease: ${{ steps.flags.outputs.prerelease }}
           draft: false
           generate_release_notes: true
+
+      - name: Ensure prerelease flag when needed (edit existing)
+        if: ${{ steps.flags.outputs.prerelease == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -e
+          TAG="${{ steps.vars.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --prerelease
+          else
+            gh release create "$TAG" --prerelease --title "Release $TAG" --notes-file CHANGELOG.md
+          fi
 
