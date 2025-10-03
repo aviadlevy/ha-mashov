@@ -11,6 +11,12 @@
 ### Fixed
 - TBD
 
+## [0.1.60] - 2025-10-03
+
+### Fixed
+- Holidays sensor unique_id made per-entry (`mashov_{entry_id}_holidays`) to avoid duplicates
+- Minor debug log for options flow in `__init__.py`
+
 ## [0.1.59] - 2025-10-03
 
 ### Changed

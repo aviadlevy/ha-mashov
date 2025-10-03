@@ -169,7 +169,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
-async def async_get_options_flow(config_entry: ConfigEntry):
+def async_get_options_flow(config_entry: ConfigEntry):
     try:
         _LOGGER.debug(
             "async_get_options_flow requested (entry_id=%s, title='%s')",
