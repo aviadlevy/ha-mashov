@@ -81,6 +81,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     hass.data.setdefault(DOMAIN, {})
 
+    # Extra diagnostics to understand why Configure button may not appear
+    try:
+        yaml_present = bool(hass.data.get(DOMAIN, {}).get("yaml_options"))
+        _LOGGER.debug(
+            "ConfigEntry meta: id=%s title='%s' source=%s domain=%s supports_options=%s yaml_present=%s",
+            getattr(entry, "entry_id", ""),
+            getattr(entry, "title", ""),
+            getattr(entry, "source", ""),
+            getattr(entry, "domain", ""),
+            getattr(entry, "supports_options", None),
+            yaml_present,
+        )
+        import sys  # local import to avoid unused-import when stripped by HA
+        has_options_flow = hasattr(sys.modules[__name__], "async_get_options_flow")
+        _LOGGER.debug("Module has async_get_options_flow: %s", has_options_flow)
+        # Always log a concise INFO so it's visible even without DEBUG
+        _LOGGER.info(
+            "Mashov entry meta: source=%s, has_options_flow=%s, yaml_present=%s",
+            getattr(entry, "source", ""), has_options_flow, yaml_present,
+        )
+    except Exception as e:
+        _LOGGER.debug("Failed to log ConfigEntry diagnostics: %s", e)
+
     # Normalize entry title: "<school_name> (<school_id>)"
     data = entry.data
     school_id = data.get(CONF_SCHOOL_ID, "")
