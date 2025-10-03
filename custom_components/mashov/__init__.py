@@ -165,12 +165,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     except Exception:
         last_ts = None
 
-    do_startup_refresh = (schedule_type == "interval")
-    if schedule_type == "interval" and last_ts is not None and (time.time() - last_ts) < cooldown_seconds:
+    has_students = bool(getattr(coordinator, "data", None) and len((coordinator.data or {}).get("students", [])) > 0)
+    # Refresh on startup if using interval OR if no students cached yet (first boot)
+    do_startup_refresh = (schedule_type == "interval") or (not has_students)
+    if schedule_type == "interval" and last_ts is not None and (time.time() - last_ts) < cooldown_seconds and has_students:
         do_startup_refresh = False
         _LOGGER.info("Skipping startup refresh in interval mode due to cooldown (last=%s)", datetime.fromtimestamp(last_ts).isoformat(timespec="seconds"))
     if schedule_type in ("daily", "weekly"):
-        _LOGGER.info("Startup refresh disabled for schedule_type=%s (defer to timers or manual service)", schedule_type)
+        if not has_students:
+            _LOGGER.info("Startup refresh enabled to warm up students (no cache present) [type=%s]", schedule_type)
+        else:
+            _LOGGER.info("Startup refresh disabled for schedule_type=%s (defer to timers or manual service)", schedule_type)
 
     if do_startup_refresh:
         try:

@@ -269,10 +269,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
             vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): vol.In(["daily", "weekly", "interval"]),
             vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
-            # Backward compat single day selector
-            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): vol.All(int, vol.Range(min=0, max=6)),
-            # New: multi days selector
-            vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): [vol.All(int, vol.Range(min=0, max=6))],
+            # Backward compat single day selector (use plain int to avoid serializer issues)
+            vol.Optional(CONF_SCHEDULE_DAY, default=options[CONF_SCHEDULE_DAY]): int,
+            # Multi days selector as list of ints (validation יקרה בצד ה-backend)
+            vol.Optional(CONF_SCHEDULE_DAYS, default=options[CONF_SCHEDULE_DAYS]): [int],
             vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
         })
         _LOGGER.debug("Options schema built for entry '%s' (id=%s)", getattr(self.config_entry, "title", ""), getattr(self.config_entry, "entry_id", ""))
