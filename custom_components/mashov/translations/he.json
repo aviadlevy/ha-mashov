@@ -8,7 +8,7 @@
         "data": {
           "username": "שם משתמש/תעודה",
           "password": "סיסמה",
-          "school_id": "מוסד"
+          "school_name": "מוסד"
         }
       },
       "pick_school": {
@@ -20,6 +20,24 @@
       "auth": "הזדהות נכשלה. בדקו משתמש/סיסמה/מוסד. ייתכן ששרת משוב לא זמין כרגע.",
       "cannot_connect": "לא ניתן להתחבר למשו\"ב. בדקו את החיבור לאינטרנט או נסו שוב מאוחר יותר.",
       "school_not_found": "לא נמצא מוסד תואם."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "אפשרויות משו\"ב",
+        "description": "הגדרת טווחי שיעורים ולו\"ז רענון נתונים.",
+        "data": {
+          "homework_days_back": "כמה ימים אחורה לש\"ב",
+          "homework_days_forward": "כמה ימים קדימה לש\"ב",
+          "api_base": "כתובת API (מתקדם)",
+          "schedule_type": "סוג לו\"ז (daily/weekly/interval)",
+          "schedule_time": "שעת רענון (HH:MM)",
+          "schedule_day": "יום בשבוע (ישן, תאימות לאחור)",
+          "schedule_days": "ימים בשבוע (0=שני ... 6=ראשון)",
+          "schedule_interval": "מרווח בדקות (במצב interval)"
+        }
+      }
     }
   }
 }

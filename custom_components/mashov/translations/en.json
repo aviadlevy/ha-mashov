@@ -8,7 +8,7 @@
         "data": {
           "username": "Username/ID",
           "password": "Password",
-          "school_id": "School"
+          "school_name": "School"
         }
       },
       "pick_school": {
@@ -20,6 +20,24 @@
       "auth": "Authentication failed. Check credentials/school.",
       "cannot_connect": "Cannot reach Mashov.",
       "school_not_found": "No school matched that name."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Mashov Options",
+        "description": "Configure homework ranges and refresh schedule.",
+        "data": {
+          "homework_days_back": "Homework days back",
+          "homework_days_forward": "Homework days forward",
+          "api_base": "API base (advanced)",
+          "schedule_type": "Schedule type (daily/weekly/interval)",
+          "schedule_time": "Refresh time (HH:MM)",
+          "schedule_day": "Weekday (legacy, backward compat)",
+          "schedule_days": "Weekdays (0=Mon ... 6=Sun)",
+          "schedule_interval": "Interval minutes (interval mode)"
+        }
+      }
     }
   }
 }
