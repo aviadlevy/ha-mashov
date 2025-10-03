@@ -84,7 +84,7 @@ jobs:
           generate_release_notes: true
           files: |
             README.md
-            examples/screenshots/**
+            examples/screenshots/**/*
 
       - name: Ensure prerelease flag when needed (edit existing)
         if: ${{ steps.flags.outputs.prerelease == 'true' }}
@@ -96,7 +96,10 @@ jobs:
           TAG="${{ steps.vars.outputs.tag }}"
           BODY_FILE="${{ steps.changelog.outputs.body_path }}"
           shopt -s nullglob globstar
-          files=(README.md examples/screenshots/**)
+          files=(README.md)
+          for f in examples/screenshots/**/*; do
+            if [ -f "$f" ]; then files+=("$f"); fi
+          done
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --prerelease --notes-file "$BODY_FILE" --title "Release $TAG"
             if [ ${#files[@]} -gt 0 ]; then
