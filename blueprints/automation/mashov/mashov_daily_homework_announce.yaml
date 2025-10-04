@@ -1,10 +1,9 @@
 blueprint:
-  name: Mashov – Daily Homework & Behavior Announcement
+  name: Mashov – Daily Homework & Behavior Announcement (Trace-friendly)
   description: >
-    Reads today's homework and behavior over a speaker, once a day at 15:00,
-    skipping nights and holidays. Temporarily raises volume to max, speaks in Hebrew,
-    then restores the previous volume after TTS finishes. Works with Mashov sensors
-    that expose Items[] in attributes.
+    Announces today's behavior & homework at 15:00, skips nights & holidays,
+    raises volume, speaks (Hebrew), then restores volume.
+    This version is TRACE-FRIENDLY: every decision path has an alias and a reason.
   domain: automation
   input:
     holiday_sensor:
@@ -39,9 +38,7 @@ blueprint:
 
     tts_service:
       name: TTS service to call
-      description: >
-        Recommended: tts.speak (unified TTS). If using legacy Google Translate,
-        switch the action block below (commented alternative).
+      description: Recommended: tts.speak. For legacy google_translate_say, see commented example.
       default: tts.speak
       selector: { text: {} }
 
@@ -52,30 +49,11 @@ blueprint:
 
 mode: restart
 
+# Simple time trigger; ALL logic is traced inside the action choose paths.
 trigger:
-  - platform: time
+  - alias: "Daily schedule"
+    platform: time
     at: !input run_time
-
-condition:
-  - condition: time
-    after: "07:00:00"
-    before: "22:00:00"
-
-  - condition: template
-    value_template: >
-      {% set items = state_attr(holiday_sensor,'Items') or state_attr(holiday_sensor,'items') or [] %}
-      {% set today = now().date() %}
-      {% set in_holiday = false %}
-      {% for it in items %}
-        {% set s = (as_datetime(it.start).date() if (it.start is defined and it.start) else none) %}
-        {% set e = (as_datetime(it.end).date()   if (it.end   is defined and it.end)   else none) %}
-        {% if s and e and (today >= s) and (today < e) %}
-          {% set in_holiday = true %}
-        {% elif s and not e and (today == s) %}
-          {% set in_holiday = true %}
-        {% endif %}
-      {% endfor %}
-      {{ not in_holiday }}
 
 variables:
   holiday_sensor: !input holiday_sensor
@@ -86,6 +64,11 @@ variables:
   tts_service: !input tts_service
   tts_language: !input tts_language
 
+  # Window for allowed hours (for traces & manual runs)
+  allow_start: "07:00:00"
+  allow_end:   "22:00:00"
+  now_time: "{{ now().time() }}"
+
   student_name: >
     {{ state_attr(behavior_sensor,'Student name')
        or state_attr(homework_sensor,'Student name')
@@ -93,6 +76,7 @@ variables:
        or state_attr(homework_sensor,'student_name')
        or 'התלמיד/ה' }}
 
+  # Build today's homework summary (subject: homework)
   todays_homework: >
     {% set items = state_attr(homework_sensor,'Items') or state_attr(homework_sensor,'items') or [] %}
     {% set today = now().date() %}
@@ -108,6 +92,7 @@ variables:
     {% endfor %}
     {{ lines | join(' ; ') }}
 
+  # Build today's behavior summary (subject: achva_name)
   todays_behavior: >
     {% set items = state_attr(behavior_sensor,'Items') or state_attr(behavior_sensor,'items') or [] %}
     {% set today = now().date() %}
@@ -126,6 +111,22 @@ variables:
   has_data_today: >
     {{ (todays_homework | trim | length > 0) or (todays_behavior | trim | length > 0) }}
 
+  # Holiday check (exclusive end)
+  in_holiday_today: >
+    {% set items = state_attr(holiday_sensor,'Items') or state_attr(holiday_sensor,'items') or [] %}
+    {% set today = now().date() %}
+    {% set ih = false %}
+    {% for it in items %}
+      {% set s = (as_datetime(it.start).date() if (it.start is defined and it.start) else none) %}
+      {% set e = (as_datetime(it.end).date()   if (it.end   is defined and it.end)   else none) %}
+      {% if s and e and (today >= s) and (today < e) %}
+        {% set ih = true %}
+      {% elif s and not e and (today == s) %}
+        {% set ih = true %}
+      {% endif %}
+    {% endfor %}
+    {{ ih }}
+
   announcement_text: >
     {% set parts = ['שלום ' ~ student_name] %}
     {% if todays_behavior | trim | length > 0 %}
@@ -137,43 +138,115 @@ variables:
     {{ parts | join('. ') }}
 
 action:
-  - choose:
-      - conditions:
+  - alias: "Decision tree (why/what chosen) – see Traces"
+    choose:
+
+      # --- Night guard path ---
+      - alias: "Skip: Night hours ({{ now_time }}) not in {{ allow_start }}–{{ allow_end }}"
+        conditions:
           - condition: template
-            value_template: "{{ has_data_today }}"
+            alias: "Is night?"
+            value_template: >
+              {{ not (now().time() >= strptime(allow_start, '%H:%M:%S').time()
+                       and now().time() <= strptime(allow_end, '%H:%M:%S').time()) }}
         sequence:
-          - variables:
+          - alias: "Reason logged"
+            service: logbook.log
+            data:
+              name: "Mashov announce"
+              message: "Skipped: Night window. Now={{ now_time }} Allow={{ allow_start }}–{{ allow_end }}"
+              entity_id: !input media_player
+          - stop: "Stop: outside allowed hours"
+            error: false
+
+      # --- Holiday path ---
+      - alias: "Skip: Today is a holiday"
+        conditions:
+          - condition: template
+            alias: "In-holiday?"
+            value_template: "{{ in_holiday_today }}"
+        sequence:
+          - alias: "Reason logged"
+            service: logbook.log
+            data:
+              name: "Mashov announce"
+              message: "Skipped: Holiday detected by {{ holiday_sensor }}."
+              entity_id: !input holiday_sensor
+          - stop: "Stop: holiday"
+            error: false
+
+      # --- No data path ---
+      - alias: "Skip: No data for today (homework & behavior empty)"
+        conditions:
+          - condition: template
+            alias: "Has data today?"
+            value_template: "{{ not has_data_today }}"
+        sequence:
+          - alias: "Reason logged"
+            service: logbook.log
+            data:
+              name: "Mashov announce"
+              message: "Skipped: No items for today. HW='{{ todays_homework }}' | Behave='{{ todays_behavior }}'"
+          - stop: "Stop: no data today"
+            error: false
+
+      # --- Main announce path ---
+      - alias: "Announce: Speak homework & behavior"
+        conditions:
+          - condition: template
+            alias: "Proceed?"
+            value_template: "{{ has_data_today and (not in_holiday_today) and
+                               (now().time() >= strptime(allow_start, '%H:%M:%S').time()) and
+                               (now().time() <= strptime(allow_end,  '%H:%M:%S').time()) }}"
+        sequence:
+          - alias: "Snapshot previous volume"
+            variables:
               prev_vol: "{{ state_attr(media_player,'volume_level') }}"
-          - service: media_player.volume_set
+
+          - alias: "Set max volume"
+            service: media_player.volume_set
             target: { entity_id: !input media_player }
             data:
               volume_level: "{{ max_volume }}"
-          - wait_template: >
+
+          - alias: "Wait volume to apply (≤5s)"
+            wait_template: >
               {{ (state_attr(media_player,'volume_level') or 0) >= (max_volume | float - 0.02) }}
             timeout: "00:00:05"
             continue_on_timeout: true
-          - service: "{{ tts_service }}"
+
+          - alias: "Speak via TTS"
+            service: "{{ tts_service }}"
             data:
               media_player_entity_id: !input media_player
               message: "{{ announcement_text }}"
               language: "{{ tts_language }}"
               cache: false
-          # Legacy example:
-          # - service: tts.google_translate_say
+
+          # Legacy example if needed:
+          # - alias: "Speak via Google Translate (legacy)"
+          #   service: tts.google_translate_say
           #   target: { entity_id: !input media_player }
           #   data:
           #     message: "{{ announcement_text }}"
           #     language: he
-          - wait_template: >
+
+          - alias: "Wait TTS end (≤2m)"
+            wait_template: >
               {{ states(media_player) not in ['playing','buffering'] }}
             timeout: "00:02:00"
             continue_on_timeout: true
-          - if:
+
+          - alias: "Restore previous volume (if known)"
+            if:
               - condition: template
+                alias: "Has previous volume?"
                 value_template: "{{ prev_vol is number }}"
             then:
-              - service: media_player.volume_set
+              - alias: "Restore"
+                service: media_player.volume_set
                 target: { entity_id: !input media_player }
                 data:
                   volume_level: "{{ prev_vol }}"
+
     default: []
