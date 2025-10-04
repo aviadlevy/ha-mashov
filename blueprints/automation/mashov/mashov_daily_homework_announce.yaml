@@ -1,0 +1,206 @@
+blueprint:
+  name: Mashov – Daily Homework & Behavior Announcement
+  description: >
+    Reads today's homework and behavior over a speaker, once a day at 15:00,
+    skipping nights and holidays. Increases volume to max for the announcement
+    and restores it after TTS finishes. Works with Mashov sensors that expose
+    Items[] attributes.
+  domain: automation
+  input:
+    holiday_sensor:
+      name: Holiday sensor (Mashov)
+      description: Entity with Items[] of date ranges (start/end) – e.g. sensor.mashov_holidays
+      selector: { entity: { domain: sensor } }
+    homework_sensor:
+      name: Homework sensor (Mashov)
+      description: Entity with Items[] that include lesson_date, subject_name, homework
+      selector: { entity: { domain: sensor } }
+    behavior_sensor:
+      name: Behavior sensor (Mashov)
+      description: Entity with Items[] that include lesson_date, subject, achva_name
+      selector: { entity: { domain: sensor } }
+    media_player:
+      name: Speaker media_player
+      selector: { entity: { domain: media_player } }
+    run_time:
+      name: Daily run time
+      description: Defaults to 15:00 (local time)
+      default: "15:00:00"
+      selector: { time: {} }
+    max_volume:
+      name: Temporary max volume for announcement
+      default: 1.0
+      selector: { number: { min: 0.1, max: 1.0, step: 0.05, mode: slider } }
+    tts_service:
+      name: TTS service to call
+      description: >
+        Preferred: tts.speak (new universal service). Example: tts.speak
+        If your setup needs Google Translate legacy, change the action at the bottom (commented alternative).
+      default: tts.speak
+      selector: { text: {} }
+    tts_language:
+      name: TTS language
+      default: he-IL
+      selector: { text: {} }
+
+# ---------------------------
+# Dependencies / What this does
+# ---------------------------
+# • Requires Mashov integration that exposes:
+#   - Holiday sensor with attributes Items[] (each item has start/end ISO datetimes)
+#   - Homework sensor with attributes Items[] (lesson_date, subject_name, homework)
+#   - Behavior sensor with attributes Items[] (lesson_date, subject, achva_name)
+# • At run time (15:00):
+#   - Checks we are in day-time window (07:00–22:00).
+#   - Skips if today is a holiday (based on holiday_sensor Items).
+#   - Builds "today's homework" and "today's behaviors" from Items where lesson_date == today.
+#   - If none exist → does nothing.
+#   - Otherwise: stores current volume, sets max volume, speaks:
+#       "שלום <StudentName>. התנהגות היום: … . שיעורי בית היום: …"
+#     waits for TTS to end, then restores original volume.
+
+mode: restart
+
+trigger:
+  - platform: time
+    at: !input run_time
+
+condition:
+  # Extra safety: do not run at night (even though time is 15:00)
+  - condition: time
+    after: "07:00:00"
+    before: "22:00:00"
+  # Skip holidays (today within any holiday range)
+  - condition: template
+    value_template: >
+      {% set hs = iif(is_state_attr(blueprint.inputs.holiday_sensor,'friendly_name',None) != None,
+        blueprint.inputs.holiday_sensor, blueprint.inputs.holiday_sensor) %}
+      {% set items = state_attr(hs,'Items') or state_attr(hs,'items') or [] %}
+      {% set today = now().date() %}
+      {% set in_holiday = false %}
+      {% for it in items %}
+        {% set s = as_datetime(it.start).date() if it.start is defined and it.start %}
+        {% set e = as_datetime(it.end).date() if it.end is defined and it.end %}
+        {% if s and e %}
+          {# Treat end as exclusive if stored as 00:00 next day; include s <= today < e #}
+          {% if today >= s and today < e %}{% set in_holiday = true %}{% endif %}
+        {% elif s and not e %}
+          {% if today == s %}{% set in_holiday = true %}{% endif %}
+        {% endif %}
+      {% endfor %}
+      {{ not in_holiday }}
+
+variables:
+  holiday_sensor: !input holiday_sensor
+  homework_sensor: !input homework_sensor
+  behavior_sensor: !input behavior_sensor
+  media_player: !input media_player
+  max_volume: !input max_volume
+  tts_service: !input tts_service
+  tts_language: !input tts_language
+
+  student_name: >
+    {{ state_attr(behavior_sensor,'Student name')
+       or state_attr(homework_sensor,'Student name')
+       or state_attr(behavior_sensor,'student_name')
+       or state_attr(homework_sensor,'student_name')
+       or 'התלמיד/ה' }}
+
+  # Build today's homework summary (subject: homework)
+  todays_homework: >
+    {% set items = state_attr(homework_sensor,'Items') or state_attr(homework_sensor,'items') or [] %}
+    {% set today = now().date() %}
+    {% set lines = [] %}
+    {% for it in items %}
+      {% if it.lesson_date is defined and it.lesson_date %}
+        {% if as_datetime(it.lesson_date).date() == today %}
+          {% set subj = it.subject_name or it.subject or 'מקצוע' %}
+          {% set hw = (it.homework or it.remark or '') | replace('\n',' ') %}
+          {% set _ = lines.append(subj ~ ': ' ~ hw) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {{ lines | join(' ; ') }}
+
+  # Build today's behavior summary (subject: achva_name)
+  todays_behavior: >
+    {% set items = state_attr(behavior_sensor,'Items') or state_attr(behavior_sensor,'items') or [] %}
+    {% set today = now().date() %}
+    {% set lines = [] %}
+    {% for it in items %}
+      {% if it.lesson_date is defined and it.lesson_date %}
+        {% if as_datetime(it.lesson_date).date() == today %}
+          {% set subj = it.subject or 'מקצוע' %}
+          {% set tag  = it.achva_name or it.event or 'אירוע' %}
+          {% set _ = lines.append(subj ~ ': ' ~ tag) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {{ lines | join(' ; ') }}
+
+  has_data_today: >
+    {{ (todays_homework | trim | length > 0) or (todays_behavior | trim | length > 0) }}
+
+  announcement_text: >
+    {% set parts = [] %}
+    {% set _ = parts.append('שלום ' ~ student_name) %}
+    {% if todays_behavior | trim | length > 0 %}
+      {% set _ = parts.append('התנהגות היום: ' ~ todays_behavior) %}
+    {% endif %}
+    {% if todays_homework | trim | length > 0 %}
+      {% set _ = parts.append('שיעורי בית היום: ' ~ todays_homework) %}
+    {% endif %}
+    {{ parts | join('. ') }}
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ has_data_today }}"
+        sequence:
+          # 1) Snapshot current volume
+          - variables:
+              prev_vol: "{{ state_attr(media_player,'volume_level') }}"
+          # 2) Set to max
+          - service: media_player.volume_set
+            target: { entity_id: !input media_player }
+            data:
+              volume_level: "{{ max_volume }}"
+          # 3) Wait a moment for volume to apply (or until attribute reflects it)
+          - wait_template: >
+              {{ (state_attr(media_player,'volume_level') or 0) >= (max_volume | float - 0.02) }}
+            timeout: "00:00:05"
+            continue_on_timeout: true
+
+          # 4) Speak (Preferred modern service: tts.speak)
+          - service: "{{ tts_service }}"
+            data:
+              media_player_entity_id: !input media_player
+              message: "{{ announcement_text }}"
+              language: "{{ tts_language }}"
+              cache: false
+
+          # --- Alternative (legacy Google Translate) ---
+          # If you need it, comment the tts.speak call above and uncomment below:
+          # - service: tts.google_translate_say
+          #   target: { entity_id: !input media_player }
+          #   data:
+          #     message: "{{ announcement_text }}"
+          #     language: he
+
+          # 5) Wait for TTS to finish (player not playing/buffering)
+          - wait_template: >
+              {{ states(media_player) not in ['playing','buffering'] }}
+            timeout: "00:02:00"
+            continue_on_timeout: true
+
+          # 6) Restore volume (only if we had a valid previous volume)
+          - if:
+              - condition: template
+                value_template: "{{ prev_vol is number }}"
+            then:
+              - service: media_player.volume_set
+                target: { entity_id: !input media_player }
+                data:
+                  volume_level: "{{ prev_vol }}"
+    default: []
