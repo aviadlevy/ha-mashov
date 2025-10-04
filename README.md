@@ -100,15 +100,15 @@ For each child **N**, these sensors are created:
 
 ## 🔔 Automation Blueprint: Daily Homework & Behavior Announcement
 
-הוספנו Blueprint אוטומציה המקריא בעברית את שיעורי הבית וההתנהגות של היום בשעה קבועה, עם שמירה על ווליום ועוד.
+A ready-to-use blueprint that speaks today's homework and behavior in Hebrew at a fixed time, with safe defaults and volume handling.
 
-ייבוא בלחיצה (My Home Assistant):
+One‑click import (My Home Assistant):
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint URL.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FNirBY%2Fha-mashov%2Fmain%2Fblueprints%2Fautomation%2Fmashov%2Fmashov_daily_homework_announce.yaml)
 
-קובץ ה-Blueprint נמצא ב-`blueprints/automation/mashov/mashov_daily_homework_announce.yaml`.
+Blueprint file location: `blueprints/automation/mashov/mashov_daily_homework_announce.yaml`.
 
-מה עושה האוטומציה?
+What does it do?
 - Daily voice announcement at **15:00** that reads the student’s **name**, **today’s behaviors**, and **today’s homework** (Hebrew).
 - Runs **only in daytime** and **skips holidays** using your Mashov holidays sensor (`Items[start/end]`).
 - Triggers **only if there is data for today** in the homework and/or behavior sensors.
@@ -118,9 +118,9 @@ For each child **N**, these sensors are created:
 - Safe defaults: 15:00 schedule, Hebrew (`he-IL`) TTS, 07:00–22:00 guard rails.
 - GitHub-friendly: no hardcoded entity IDs; can be imported with a **My Home Assistant** one-click link.
 
-כיצד להשתמש?
-1. לחצו על כפתור הייבוא למעלה והשלימו את הבחירה של `holiday_sensor`, `homework_sensor`, `behavior_sensor`, `media_player` ו-`tts_service` אם תרצו.
-2. שמרו את האוטומציה. ברירת המחדל תרוץ מדי יום ב-15:00.
+How to use
+1. Click the import button above and select your `holiday_sensor`, `homework_sensor`, `behavior_sensor`, `media_player`, and optional `tts_service`.
+2. Save the automation. By default it runs every day at 15:00.
 
 ---
 
