@@ -106,17 +106,15 @@ variables:
   has_data_today: >
     {{ (todays_homework | trim | length > 0) or (todays_behavior | trim | length > 0) }}
 
-  # Holiday check (exclusive end)
+  # Holiday check (inclusive end)
   in_holiday_today: >
     {% set items = state_attr(holiday_sensor,'Items') or state_attr(holiday_sensor,'items') or [] %}
     {% set today = now().date() %}
     {% set ih = false %}
     {% for it in items %}
       {% set s = (as_datetime(it.start).date() if (it.start is defined and it.start) else none) %}
-      {% set e = (as_datetime(it.end).date()   if (it.end   is defined and it.end)   else none) %}
-      {% if s and e and (today >= s) and (today < e) %}
-        {% set ih = true %}
-      {% elif s and not e and (today == s) %}
+      {% set e = (as_datetime(it.end).date()   if (it.end   is defined and it.end)   else s) %}
+      {% if s and (today >= s) and (today <= e) %}
         {% set ih = true %}
       {% endif %}
     {% endfor %}

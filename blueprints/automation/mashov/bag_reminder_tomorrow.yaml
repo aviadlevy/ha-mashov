@@ -4,7 +4,7 @@ blueprint:
     Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
-    Includes detailed trace/logbook of "why ran / why skipped".
+    Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
   domain: automation
   source_url: https://raw.githubusercontent.com/NirBY/ha-mashov/main/blueprints/automation/mashov/bag_reminder_tomorrow.yaml
   input:
@@ -61,8 +61,8 @@ blueprint:
             - cloud_say
     language_code:
       name: TTS language code
-      description: Default "iw" (Google legacy). You can also use "he".
-      default: iw
+      description: For Google Translate Hebrew use **he**
+      default: he
       selector: { text: {} }
 
 mode: single
@@ -86,17 +86,15 @@ variables:
   tts_service_type: !input tts_service_type
   language_code: !input language_code
 
-  # Normalize language for Google Translate: accept variants (iw, he, he-il, iw-il)
+  # Normalize language for Google Translate: map deprecated "iw" -> "he"
   lang_effective: >-
     {% set lc = (language_code | lower) %}
     {{ 'he' if lc in ['iw','he-il','iw-il'] else lc }}
 
-  now_ts: "{{ now() }}"
-  # Compute tomorrow (local)
-  tomorrow_ts: "{{ as_timestamp(now()) + 86400 }}"
-  tomorrow_date_iso: "{{ (as_timestamp(now()) + 86400) | timestamp_custom('%Y-%m-%d', true) }}"
-  # %w => 0..6 (Sun=0). Mashov day 1..7 (Sun=1, Sat=7)
-  tomorrow_w: "{{ ((as_timestamp(now()) + 86400) | timestamp_custom('%w', true) | int) }}"
+  # Compute tomorrow (LOCAL timezone; do not force UTC)
+  tomorrow_date_iso: "{{ (as_timestamp(now()) + 86400) | timestamp_custom('%Y-%m-%d') }}"
+  # %w => 0..6 (Sun=0) in LOCAL timezone. Mashov day: Sun=1..Sat=7
+  tomorrow_w: "{{ ((as_timestamp(now()) + 86400) | timestamp_custom('%w') | int) }}"
   tomorrow_day_mashov: "{{ 1 if tomorrow_w == 0 else tomorrow_w + 1 }}"
 
   # Night guard (don’t run outside quiet_end..quiet_start)
@@ -111,19 +109,27 @@ variables:
   # Is tomorrow Saturday?
   is_tomorrow_sat: "{{ tomorrow_day_mashov | int == 7 }}"
 
-  # Is tomorrow a holiday? (holiday_entity.attributes.Items list with start/end datetimes)
+  # Holiday detection (LOCAL dates). Treat end date as INCLUSIVE (common calendars).
   is_tomorrow_holiday: >-
-    {% set items = state_attr(holiday_entity, 'Items') or [] %}
-    {% set t0 = (tomorrow_date_iso ~ 'T00:00:00') | as_datetime | as_timestamp %}
-    {% set t1 = t0 + 24*60*60 %}
-    {% for it in items if it.start is defined and it.end is defined %}
-      {% set s = (it.start | as_datetime | as_timestamp) %}
-      {% set e = (it.end   | as_datetime | as_timestamp) %}
-      {% if (s < t1) and (e > t0) %}
+    {% set tdate = tomorrow_date_iso %}
+    {% set items = (state_attr(holiday_entity,'Items') or state_attr(holiday_entity,'items') or []) %}
+    {% for it in items if (it.start is defined) %}
+      {% set s = (it.start | as_datetime).date().isoformat() %}
+      {% set e = (it.end   | as_datetime).date().isoformat() if (it.end is defined and it.end) else s %}
+      {% if tdate >= s and tdate <= e %}
         {{ true }}
       {% endif %}
     {% endfor %}
     {{ false }}
+  tomorrow_holiday_name: >-
+    {% set tdate = tomorrow_date_iso %}
+    {% for it in (state_attr(holiday_entity,'Items') or state_attr(holiday_entity,'items') or []) %}
+      {% set s = (it.start | as_datetime).date().isoformat() if it.start is defined else none %}
+      {% set e = (it.end   | as_datetime).date().isoformat() if it.end is defined else s %}
+      {% if s and tdate >= s and tdate <= e %}
+        {{ it.name or it.holidayName or it.hollyDayName }}
+      {% endif %}
+    {% endfor %}
 
   # Student name from data (trim anything after "(" if present)
   student_name: >-
@@ -205,6 +211,9 @@ variables:
     {% set reasons = reasons + ['night_block=' ~ (is_night_block | string)] %}
     {% set reasons = reasons + ['tomorrow_sat=' ~ (is_tomorrow_sat | string)] %}
     {% set reasons = reasons + ['tomorrow_holiday=' ~ (is_tomorrow_holiday | string)] %}
+    {% if is_tomorrow_holiday %}
+      {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
+    {% endif %}
     {% set reasons = reasons + ['has_data=' ~ (has_tomorrow_data | string)] %}
     {{ reasons | join(', ') }}
 
@@ -303,20 +312,16 @@ action:
                 Bag Reminder run OK | {{ trace_summary }} | Speech="{{ speech_text }}"
 
     default:
-      # TRACE: skipped
+      # TRACE: skipped (print which holiday if applicable)
       - service: logbook.log
         data:
           name: "Bag Reminder"
-          message: "Skipped. {{ trace_summary }}"
+          message: >-
+            Skipped. {{ trace_summary }}
           entity_id: !input speaker_entity
       - service: system_log.write
         data:
           level: warning
           logger: custom_components.mashov.bag_reminder
-          message: "Skipped bag reminder | {{ trace_summary }}"
-
-# ──────────────────────────────── NOTES ───────────────────────────────
-# • Hebrew for Google Translate TTS is **he** (NOT iw). The blueprint normalizes iw→he.
-# • Student name is taken from timetable.attributes['Student name'] and trimmed before '('.
-# • Skips if: night window, Saturday, or holiday overlap; also skips if no lessons for tomorrow.
-# • Adds Logbook + System Log entries so you can see exactly why it ran or skipped.
+          message: >-
+            Skipped bag reminder | {{ trace_summary }}
