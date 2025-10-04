@@ -37,15 +37,10 @@ blueprint:
       default: 1.0
       selector: { number: { min: 0.1, max: 1.0, step: 0.05, mode: slider } }
 
-    tts_service:
-      name: TTS service to call
-      description: "Recommended tts.speak; for legacy google_translate_say see commented example"
-      default: tts.speak
-      selector: { text: {} }
-
     tts_language:
       name: TTS language
-      default: he-IL
+      description: Default Google Translate Hebrew is "iw" (also accepts "he")
+      default: iw
       selector: { text: {} }
 
 mode: restart
@@ -62,7 +57,6 @@ variables:
   behavior_sensor: !input behavior_sensor
   media_player: !input media_player
   max_volume: !input max_volume
-  tts_service: !input tts_service
   tts_language: !input tts_language
 
   # Window for allowed hours (for traces & manual runs)
@@ -216,13 +210,12 @@ action:
             timeout: "00:00:05"
             continue_on_timeout: true
 
-          - alias: "Speak via TTS"
-            service: "{{ tts_service }}"
+          - alias: "Speak via Google Translate"
+            service: tts.google_translate_say
+            target: { entity_id: !input media_player }
             data:
-              media_player_entity_id: !input media_player
               message: "{{ announcement_text }}"
-              language: "{{ tts_language }}"
-              cache: false
+              language: !input tts_language
 
           # Legacy example if needed:
           # - alias: "Speak via Google Translate (legacy)"
