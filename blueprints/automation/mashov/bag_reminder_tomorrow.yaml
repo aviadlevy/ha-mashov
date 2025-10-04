@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Reads tomorrow's subjects (and teacher names + optional plan) aloud at 18:00,
+    Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped".
@@ -24,10 +24,6 @@ blueprint:
     speaker_entity:
       name: Speaker / media_player
       selector: { entity: { domain: media_player } }
-    student_name:
-      name: Student name (for greeting)
-      default: "תלמיד/ה"
-      selector: { text: {} }
     daily_time:
       name: Speak time (local)
       description: Runs once a day at this time (default 18:00)
@@ -56,9 +52,7 @@ blueprint:
       selector: { boolean: {} }
     tts_service_type:
       name: TTS service
-      description: >
-        Choose your TTS. Google Translate works out-of-the-box on many installs.
-        If you use a different engine, change here.
+      description: Choose your TTS. Google Translate uses language code **he** for Hebrew (not iw).
       default: google_translate
       selector:
         select:
@@ -67,7 +61,8 @@ blueprint:
             - cloud_say
     language_code:
       name: TTS language code
-      default: he
+      description: Default "iw" (Google legacy). You can also use "he".
+      default: iw
       selector: { text: {} }
 
 mode: single
@@ -83,7 +78,6 @@ variables:
   weekly_plan_entity: !input weekly_plan_entity
   holiday_entity: !input holiday_entity
   speaker_entity: !input speaker_entity
-  student_name: !input student_name
   quiet_start: !input quiet_window_start
   quiet_end: !input quiet_window_end
   max_volume: !input max_volume
@@ -91,6 +85,11 @@ variables:
   use_previous_volume: !input use_previous_volume
   tts_service_type: !input tts_service_type
   language_code: !input language_code
+
+  # Normalize language for Google Translate: accept variants (iw, he, he-il, iw-il)
+  lang_effective: >-
+    {% set lc = (language_code | lower) %}
+    {{ 'he' if lc in ['iw','he-il','iw-il'] else lc }}
 
   now_ts: "{{ now() }}"
   # Compute tomorrow (local)
@@ -126,7 +125,17 @@ variables:
     {% endfor %}
     {{ false }}
 
-  # Pull tomorrow's timetable entries (Items[].timeTable) for that Mashov day; sort by lesson
+  # Student name from data (trim anything after "(" if present)
+  student_name: >-
+    {% set raw = state_attr(timetable_entity, 'Student name')
+        or state_attr(timetable_entity, 'student_name')
+        or state_attr(timetable_entity, 'full_name')
+        or state_attr(timetable_entity, 'name')
+        or state_attr(timetable_entity, 'friendly_name')
+        or 'תלמיד/ה' %}
+    {{ (raw | string).split('(')[0].strip() }}
+
+  # Pull tomorrow's timetable entries (Items[].timeTable) for Mashov day; sort by lesson
   tomorrow_lessons: >-
     {% set items = state_attr(timetable_entity, 'Items') or [] %}
     {% set rows = items
@@ -136,16 +145,15 @@ variables:
       | selectattr('day', 'equalto', tomorrow_day_mashov | int)
       | list
     %}
-    {# enrich with subject & teacher via parent groupDetails / groupTeachers #}
     {% set result = [] %}
     {% for tt in rows|sort(attribute='lesson') %}
       {% set parent = (items | selectattr('timeTable', 'defined') | selectattr('timeTable.groupId','equalto', tt.groupId) | list | first) %}
       {% set subject = parent.groupDetails.subjectName if parent and parent.groupDetails is defined and parent.groupDetails.subjectName is defined else 'מקצוע לא ידוע' %}
       {% set teacher = (
-            (parent.groupTeachers|list|first).teacherName
+            (parent.groupTeachers|first).teacherName
             if parent and parent.groupTeachers is defined
-            and (parent.groupTeachers|list|length) > 0
-            and (parent.groupTeachers|list|first).teacherName is defined
+            and (parent.groupTeachers|list|count) > 0
+            and (parent.groupTeachers|first).teacherName is defined
             else 'מורה'
         )
       %}
@@ -172,15 +180,12 @@ variables:
     {% endfor %}
     {{ out }}
 
-  # Build speech text (Hebrew, with small pauses using commas)
+  # Build speech text (Hebrew)
   speech_text: >-
-    {% set student = student_name %}
     {% set lessons = tomorrow_lessons_with_plan %}
     {% if lessons | length == 0 %}
-      {# Nothing to say #}
     {% else %}
-      {% set header = 'שלום ' ~ student ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
-      {# Compose: subject + " עם " + teacher [+ ". תוכנית: " + plan] #}
+      {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
       {% set parts = [] %}
       {% for l in lessons %}
         {% set base = l.subject ~ ' עם ' ~ l.teacher %}
@@ -190,7 +195,7 @@ variables:
       {{ header ~ parts | join('. ') ~ '.' }}
     {% endif %}
 
-  # Should run? (reasons gathered for trace)
+  # Should run?
   has_tomorrow_data: "{{ (tomorrow_lessons | length) > 0 }}"
   should_run: "{{ (not is_night_block) and (not is_tomorrow_sat) and (not is_tomorrow_holiday) and has_tomorrow_data }}"
 
@@ -247,7 +252,7 @@ action:
                     data:
                       entity_id: !input speaker_entity
                       message: "{{ speech_text }}"
-                      language: !input language_code
+                      language: "{{ lang_effective }}"
               - conditions:
                   - condition: template
                     value_template: "{{ tts_service_type == 'google_translate' }}"
@@ -256,7 +261,7 @@ action:
                     data:
                       entity_id: !input speaker_entity
                       message: "{{ speech_text }}"
-                      language: !input language_code
+                      language: "{{ lang_effective }}"
 
           # Wait until TTS finishes (player not playing/buffering)
           - wait_template: >-
@@ -288,7 +293,7 @@ action:
               name: "Bag Reminder"
               message: >-
                 Completed. Lessons={{ (tomorrow_lessons | length) }}.
-                Restored volume={{ prev_volume if (use_previous_volume and (prev_volume is number)) else restore_volume_default }}.
+                Restored volume={{ (use_previous_volume and (prev_volume is number)) | iif(prev_volume, restore_volume_default) }}.
               entity_id: !input speaker_entity
           - service: system_log.write
             data:
@@ -310,18 +315,8 @@ action:
           logger: custom_components.mashov.bag_reminder
           message: "Skipped bag reminder | {{ trace_summary }}"
 
-# ──────────────────────────────── NOTES / HOW-TO ───────────────────────────────
-# 1) Change the inputs when you create the automation (entities, student name, time).
-# 2) Holidays: expects holiday_entity.attributes.Items[] with ISO start/end as in your example.
-# 3) Timetable parsing:
-#    - Picks Items[].timeTable where day == tomorrow (Mashov day numbering).
-#    - For each row, it derives subjectName and teacherName from the same group's attributes.
-#    - Sorts by lesson ascending.
-# 4) Plans: If weekly_plan_entity is provided, it appends plan text where group_id & date match.
-# 5) TTS:
-#    - Default is google_translate; pick cloud_say if you use Nabu Casa TTS.
-#    - If you use another engine, you can fork this and swap the TTS calls.
-# 6) “Not at night”: config defaults to block outside 07:00–22:00; you can adjust inputs.
-# 7) Full trace/judgment:
-#    - Check “Trace” in the automation UI, plus see Logbook & Developer Tools → Logs with
-#      logger custom_components.mashov.bag_reminder.
+# ──────────────────────────────── NOTES ───────────────────────────────
+# • Hebrew for Google Translate TTS is **he** (NOT iw). The blueprint normalizes iw→he.
+# • Student name is taken from timetable.attributes['Student name'] and trimmed before '('.
+# • Skips if: night window, Saturday, or holiday overlap; also skips if no lessons for tomorrow.
+# • Adds Logbook + System Log entries so you can see exactly why it ran or skipped.
