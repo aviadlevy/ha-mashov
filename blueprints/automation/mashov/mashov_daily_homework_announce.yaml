@@ -4,6 +4,7 @@ blueprint:
     Announces today's behavior & homework at 15:00, skips nights & holidays,
     raises volume, speaks (Hebrew), then restores volume.
     This version is TRACE-FRIENDLY: every decision path has an alias and a reason.
+  source_url: https://raw.githubusercontent.com/NirBY/ha-mashov/main/blueprints/automation/mashov/mashov_daily_homework_announce.yaml
   domain: automation
   input:
     holiday_sensor:
