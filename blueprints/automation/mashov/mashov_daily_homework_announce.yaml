@@ -28,7 +28,7 @@ blueprint:
 
     run_time:
       name: Daily run time
-      description: "Defaults to 15:00 (local time)"
+      description: "Default 15:00 (local time)"
       default: "15:00:00"
       selector: { time: {} }
 
@@ -39,7 +39,7 @@ blueprint:
 
     tts_service:
       name: TTS service to call
-      description: "Recommended: tts.speak. For legacy google_translate_say, see commented example."
+      description: "Recommended tts.speak; for legacy google_translate_say see commented example"
       default: tts.speak
       selector: { text: {} }
 
