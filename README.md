@@ -98,6 +98,32 @@ For each child **N**, these sensors are created:
 
 ---
 
+## 🔔 Automation Blueprint: Daily Homework & Behavior Announcement
+
+הוספנו Blueprint אוטומציה המקריא בעברית את שיעורי הבית וההתנהגות של היום בשעה קבועה, עם שמירה על ווליום ועוד.
+
+ייבוא בלחיצה (My Home Assistant):
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint URL.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FNirBY%2Fha-mashov%2Fmain%2Fblueprints%2Fautomation%2Fmashov%2Fmashov_daily_homework_announce.yaml)
+
+קובץ ה-Blueprint נמצא ב-`blueprints/automation/mashov/mashov_daily_homework_announce.yaml`.
+
+מה עושה האוטומציה?
+- Daily voice announcement at **15:00** that reads the student’s **name**, **today’s behaviors**, and **today’s homework** (Hebrew).
+- Runs **only in daytime** and **skips holidays** using your Mashov holidays sensor (`Items[start/end]`).
+- Triggers **only if there is data for today** in the homework and/or behavior sensors.
+- Temporarily **sets the speaker to max volume**, speaks via **`tts.speak`** (configurable), then **restores the original volume** after playback.
+- Works with any `media_player` (Sonos, Nest, etc.); volume restore is state-aware.
+- Fully **templated blueprint**: select your own Mashov sensors and speaker at import time.
+- Safe defaults: 15:00 schedule, Hebrew (`he-IL`) TTS, 07:00–22:00 guard rails.
+- GitHub-friendly: no hardcoded entity IDs; can be imported with a **My Home Assistant** one-click link.
+
+כיצד להשתמש?
+1. לחצו על כפתור הייבוא למעלה והשלימו את הבחירה של `holiday_sensor`, `homework_sensor`, `behavior_sensor`, `media_player` ו-`tts_service` אם תרצו.
+2. שמרו את האוטומציה. ברירת המחדל תרוץ מדי יום ב-15:00.
+
+---
+
 ## 🛠️ Services
 
 ### `mashov.refresh_now`
