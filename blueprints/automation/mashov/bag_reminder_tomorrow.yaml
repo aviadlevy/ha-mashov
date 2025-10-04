@@ -1,0 +1,327 @@
+blueprint:
+  name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
+  description: >
+    Reads tomorrow's subjects (and teacher names + optional plan) aloud at 18:00,
+    only if tomorrow is a school day (not Saturday and not a holiday) and only if
+    there is data for tomorrow. Raises speaker volume, speaks, then restores it.
+    Includes detailed trace/logbook of "why ran / why skipped".
+  domain: automation
+  source_url: https://raw.githubusercontent.com/NirBY/ha-mashov/main/blueprints/automation/mashov/bag_reminder_tomorrow.yaml
+  input:
+    timetable_entity:
+      name: Timetable sensor (Mashov)
+      description: sensor.mashov_<studentID>_timetable
+      selector: { entity: { domain: sensor } }
+    weekly_plan_entity:
+      name: Weekly Plan sensor (Mashov)
+      description: sensor.mashov_<studentID>_weekly_plan (optional but recommended for lesson plan text)
+      default: ""
+      selector: { entity: { domain: sensor } }
+    holiday_entity:
+      name: Holidays sensor
+      description: sensor.mashov_holidays (with Items[] start/end/name)
+      selector: { entity: { domain: sensor } }
+    speaker_entity:
+      name: Speaker / media_player
+      selector: { entity: { domain: media_player } }
+    student_name:
+      name: Student name (for greeting)
+      default: "תלמיד/ה"
+      selector: { text: {} }
+    daily_time:
+      name: Speak time (local)
+      description: Runs once a day at this time (default 18:00)
+      default: "18:00:00"
+      selector: { time: {} }
+    quiet_window_start:
+      name: Night quiet start (don’t run after)
+      default: "22:00:00"
+      selector: { time: {} }
+    quiet_window_end:
+      name: Night quiet end (don’t run before)
+      default: "07:00:00"
+      selector: { time: {} }
+    max_volume:
+      name: Max volume (0.0–1.0)
+      default: 1.0
+      selector: { number: { min: 0, max: 1, step: 0.01, mode: slider } }
+    restore_volume_default:
+      name: Fallback volume if previous unknown (0.0–1.0)
+      default: 0.3
+      selector: { number: { min: 0, max: 1, step: 0.01, mode: slider } }
+    use_previous_volume:
+      name: Restore to previous volume (preferred)
+      description: If true, restore to the volume captured just before speaking; else restore to fallback value.
+      default: true
+      selector: { boolean: {} }
+    tts_service_type:
+      name: TTS service
+      description: >
+        Choose your TTS. Google Translate works out-of-the-box on many installs.
+        If you use a different engine, change here.
+      default: google_translate
+      selector:
+        select:
+          options:
+            - google_translate
+            - cloud_say
+    language_code:
+      name: TTS language code
+      default: he
+      selector: { text: {} }
+
+mode: single
+trace:
+  stored_traces: 50
+
+trigger:
+  - platform: time
+    at: !input daily_time
+
+variables:
+  timetable_entity: !input timetable_entity
+  weekly_plan_entity: !input weekly_plan_entity
+  holiday_entity: !input holiday_entity
+  speaker_entity: !input speaker_entity
+  student_name: !input student_name
+  quiet_start: !input quiet_window_start
+  quiet_end: !input quiet_window_end
+  max_volume: !input max_volume
+  restore_volume_default: !input restore_volume_default
+  use_previous_volume: !input use_previous_volume
+  tts_service_type: !input tts_service_type
+  language_code: !input language_code
+
+  now_ts: "{{ now() }}"
+  # Compute tomorrow (local)
+  tomorrow_ts: "{{ as_timestamp(now()) + 86400 }}"
+  tomorrow_date_iso: "{{ (as_timestamp(now()) + 86400) | timestamp_custom('%Y-%m-%d', true) }}"
+  # %w => 0..6 (Sun=0). Mashov day 1..7 (Sun=1, Sat=7)
+  tomorrow_w: "{{ ((as_timestamp(now()) + 86400) | timestamp_custom('%w', true) | int) }}"
+  tomorrow_day_mashov: "{{ 1 if tomorrow_w == 0 else tomorrow_w + 1 }}"
+
+  # Night guard (don’t run outside quiet_end..quiet_start)
+  now_tod: "{{ now().strftime('%H:%M:%S') }}"
+  is_night_block: >
+    {% set a = quiet_end %}
+    {% set b = quiet_start %}
+    {# allow when a <= now < b; block otherwise #}
+    {% set allow = (now_tod >= a) and (now_tod < b) %}
+    {{ not allow }}
+
+  # Is tomorrow Saturday?
+  is_tomorrow_sat: "{{ tomorrow_day_mashov | int == 7 }}"
+
+  # Is tomorrow a holiday? (holiday_entity.attributes.Items list with start/end datetimes)
+  is_tomorrow_holiday: >-
+    {% set items = state_attr(holiday_entity, 'Items') or [] %}
+    {% set t0 = (tomorrow_date_iso ~ 'T00:00:00') | as_datetime | as_timestamp %}
+    {% set t1 = t0 + 24*60*60 %}
+    {% for it in items if it.start is defined and it.end is defined %}
+      {% set s = (it.start | as_datetime | as_timestamp) %}
+      {% set e = (it.end   | as_datetime | as_timestamp) %}
+      {% if (s < t1) and (e > t0) %}
+        {{ true }}
+      {% endif %}
+    {% endfor %}
+    {{ false }}
+
+  # Pull tomorrow's timetable entries (Items[].timeTable) for that Mashov day; sort by lesson
+  tomorrow_lessons: >-
+    {% set items = state_attr(timetable_entity, 'Items') or [] %}
+    {% set rows = items
+      | selectattr('timeTable', 'defined')
+      | map(attribute='timeTable')
+      | selectattr('day', 'defined')
+      | selectattr('day', 'equalto', tomorrow_day_mashov | int)
+      | list
+    %}
+    {# enrich with subject & teacher via parent groupDetails / groupTeachers #}
+    {% set result = [] %}
+    {% for tt in rows|sort(attribute='lesson') %}
+      {% set parent = (items | selectattr('timeTable', 'defined') | selectattr('timeTable.groupId','equalto', tt.groupId) | list | first) %}
+      {% set subject = parent.groupDetails.subjectName if parent and parent.groupDetails is defined and parent.groupDetails.subjectName is defined else 'מקצוע לא ידוע' %}
+      {% set teacher = (
+            (parent.groupTeachers|list|first).teacherName
+            if parent and parent.groupTeachers is defined
+            and (parent.groupTeachers|list|length) > 0
+            and (parent.groupTeachers|list|first).teacherName is defined
+            else 'מורה'
+        )
+      %}
+      {% set item = dict(lesson=tt.lesson, groupId=tt.groupId, subject=subject, teacher=teacher) %}
+      {% set result = result + [item] %}
+    {% endfor %}
+    {{ result }}
+
+  # Optional: add plan text from weekly_plan_entity when the same group_id matches by date
+  tomorrow_lessons_with_plan: >-
+    {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
+    {% set plans_today = plans
+        | selectattr('lesson_date','defined')
+        | selectattr('plan','defined')
+        | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
+        | list
+    %}
+    {% set out = [] %}
+    {% for r in tomorrow_lessons %}
+      {% set p = (plans_today | selectattr('group_id','equalto', r.groupId) | list | first) %}
+      {% set plan = (p.plan if p is defined else '') %}
+      {% set merged = dict(r, **{'plan': plan}) %}
+      {% set out = out + [merged] %}
+    {% endfor %}
+    {{ out }}
+
+  # Build speech text (Hebrew, with small pauses using commas)
+  speech_text: >-
+    {% set student = student_name %}
+    {% set lessons = tomorrow_lessons_with_plan %}
+    {% if lessons | length == 0 %}
+      {# Nothing to say #}
+    {% else %}
+      {% set header = 'שלום ' ~ student ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
+      {# Compose: subject + " עם " + teacher [+ ". תוכנית: " + plan] #}
+      {% set parts = [] %}
+      {% for l in lessons %}
+        {% set base = l.subject ~ ' עם ' ~ l.teacher %}
+        {% set full = base ~ ('. תוכנית: ' ~ l.plan if (l.plan | trim | length > 0) else '') %}
+        {% set parts = parts + [ full ] %}
+      {% endfor %}
+      {{ header ~ parts | join('. ') ~ '.' }}
+    {% endif %}
+
+  # Should run? (reasons gathered for trace)
+  has_tomorrow_data: "{{ (tomorrow_lessons | length) > 0 }}"
+  should_run: "{{ (not is_night_block) and (not is_tomorrow_sat) and (not is_tomorrow_holiday) and has_tomorrow_data }}"
+
+  # Pretty reasons for trace/log
+  trace_summary: >-
+    {% set reasons = [] %}
+    {% set reasons = reasons + ['night_block=' ~ (is_night_block | string)] %}
+    {% set reasons = reasons + ['tomorrow_sat=' ~ (is_tomorrow_sat | string)] %}
+    {% set reasons = reasons + ['tomorrow_holiday=' ~ (is_tomorrow_holiday | string)] %}
+    {% set reasons = reasons + ['has_data=' ~ (has_tomorrow_data | string)] %}
+    {{ reasons | join(', ') }}
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ should_run }}"
+        sequence:
+          # TRACE: start
+          - service: logbook.log
+            data:
+              name: "Bag Reminder"
+              message: "Starting run. {{ trace_summary }}"
+              entity_id: !input speaker_entity
+
+          # Turn on & capture current volume
+          - variables:
+              prev_volume: "{{ state_attr(speaker_entity, 'volume_level') }}"
+              target_volume: "{{ max_volume | float }}"
+          - service: media_player.turn_on
+            target: { entity_id: !input speaker_entity }
+          - wait_template: "{{ states(speaker_entity) != 'off' }}"
+            timeout: "00:00:10"
+            continue_on_timeout: true
+
+          # Set to max volume
+          - service: media_player.volume_set
+            target: { entity_id: !input speaker_entity }
+            data:
+              volume_level: "{{ target_volume }}"
+          - wait_template: "{{ (state_attr(speaker_entity, 'volume_level') | float(0)) >= (target_volume | float(0)) }}"
+            timeout: "00:00:10"
+            continue_on_timeout: true
+
+          # Speak (choose TTS engine)
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ tts_service_type == 'cloud_say' }}"
+                sequence:
+                  - service: tts.cloud_say
+                    data:
+                      entity_id: !input speaker_entity
+                      message: "{{ speech_text }}"
+                      language: !input language_code
+              - conditions:
+                  - condition: template
+                    value_template: "{{ tts_service_type == 'google_translate' }}"
+                sequence:
+                  - service: tts.google_translate_say
+                    data:
+                      entity_id: !input speaker_entity
+                      message: "{{ speech_text }}"
+                      language: !input language_code
+
+          # Wait until TTS finishes (player not playing/buffering)
+          - wait_template: >-
+              {% set s = states(speaker_entity) %}
+              {{ s not in ['playing','buffering'] }}
+            timeout: "00:05:00"
+            continue_on_timeout: true
+
+          # Restore volume (previous if available, else fallback)
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ use_previous_volume and (prev_volume is number) }}"
+                sequence:
+                  - service: media_player.volume_set
+                    target: { entity_id: !input speaker_entity }
+                    data:
+                      volume_level: "{{ prev_volume | float }}"
+              - conditions: []
+                sequence:
+                  - service: media_player.volume_set
+                    target: { entity_id: !input speaker_entity }
+                    data:
+                      volume_level: "{{ restore_volume_default | float }}"
+
+          # TRACE: done
+          - service: logbook.log
+            data:
+              name: "Bag Reminder"
+              message: >-
+                Completed. Lessons={{ (tomorrow_lessons | length) }}.
+                Restored volume={{ prev_volume if (use_previous_volume and (prev_volume is number)) else restore_volume_default }}.
+              entity_id: !input speaker_entity
+          - service: system_log.write
+            data:
+              level: info
+              logger: custom_components.mashov.bag_reminder
+              message: >-
+                Bag Reminder run OK | {{ trace_summary }} | Speech="{{ speech_text }}"
+
+    default:
+      # TRACE: skipped
+      - service: logbook.log
+        data:
+          name: "Bag Reminder"
+          message: "Skipped. {{ trace_summary }}"
+          entity_id: !input speaker_entity
+      - service: system_log.write
+        data:
+          level: warning
+          logger: custom_components.mashov.bag_reminder
+          message: "Skipped bag reminder | {{ trace_summary }}"
+
+# ──────────────────────────────── NOTES / HOW-TO ───────────────────────────────
+# 1) Change the inputs when you create the automation (entities, student name, time).
+# 2) Holidays: expects holiday_entity.attributes.Items[] with ISO start/end as in your example.
+# 3) Timetable parsing:
+#    - Picks Items[].timeTable where day == tomorrow (Mashov day numbering).
+#    - For each row, it derives subjectName and teacherName from the same group's attributes.
+#    - Sorts by lesson ascending.
+# 4) Plans: If weekly_plan_entity is provided, it appends plan text where group_id & date match.
+# 5) TTS:
+#    - Default is google_translate; pick cloud_say if you use Nabu Casa TTS.
+#    - If you use another engine, you can fork this and swap the TTS calls.
+# 6) “Not at night”: config defaults to block outside 07:00–22:00; you can adjust inputs.
+# 7) Full trace/judgment:
+#    - Check “Trace” in the automation UI, plus see Logbook & Developer Tools → Logs with
+#      logger custom_components.mashov.bag_reminder.

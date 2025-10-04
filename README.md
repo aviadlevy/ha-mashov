@@ -128,6 +128,30 @@ How to use
 
 ---
 
+## 🎒 Automation Blueprint: Bag Reminder (Tomorrow's Subjects)
+
+One‑click import (My Home Assistant):
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint URL.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FNirBY%2Fha-mashov%2Fmain%2Fblueprints%2Fautomation%2Fmashov%2Fbag_reminder_tomorrow.yaml)
+
+What does it do?
+- Runs once daily at 18:00 to help a student pack their school bag for tomorrow.
+- Skips automatically if it’s night-time, Saturday, or a listed holiday (from the holiday sensor).
+- Reads tomorrow’s subjects only when timetable data actually exists for tomorrow.
+- Builds a Hebrew TTS message: “שלום {Student}… אנא לסדר תיק למחר… {subjects + teacher names [+ plan]}”.
+- Temporarily raises the speaker to a configurable max volume, then restores the previous (or fallback) volume after TTS ends.
+- Pulls subjects and teacher names from the Mashov timetable; optionally appends each lesson’s “plan” from the weekly plan sensor.
+- Waits for the speaker state to finish playing before restoring volume, to avoid cutting the message.
+- Provides rich trace/log lines explaining why it ran or skipped (night block, Saturday, holiday, has data).
+
+Blueprint file location: `blueprints/automation/mashov/bag_reminder_tomorrow.yaml`.
+
+How to use
+1. Click the import button above, pick your Mashov timetable sensor, (optional) weekly plan sensor, holiday sensor, media player and voice settings.
+2. Save the automation. Defaults: 18:00, Hebrew, night guard 22:00–07:00.
+
+---
+
 ## 🛠️ Services
 
 ### `mashov.refresh_now`
