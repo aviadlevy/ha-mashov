@@ -50,21 +50,6 @@ blueprint:
       default: he-IL
       selector: { text: {} }
 
-# ---------------------------
-# Dependencies / What this does
-# ---------------------------
-# • Requires Mashov integration that exposes:
-#   - Holiday sensor with attributes Items[] (each: start/end ISO datetimes)
-#   - Homework sensor with attributes Items[] (lesson_date, subject_name, homework)
-#   - Behavior sensor with attributes Items[] (lesson_date, subject, achva_name)
-# • At 15:00 local:
-#   - Skips if outside 07:00–22:00 (safety guard).
-#   - Skips if today is a holiday (holiday_sensor Items).
-#   - Builds today's homework/behavior (lesson_date == today).
-#   - If none exist → exit.
-#   - Else: snapshot current volume → set to max → TTS announcement (Hebrew) →
-#     wait until TTS ends → restore previous volume.
-
 mode: restart
 
 trigger:
@@ -72,12 +57,10 @@ trigger:
     at: !input run_time
 
 condition:
-  # Night guard (extra safety even though default time is 15:00)
   - condition: time
     after: "07:00:00"
     before: "22:00:00"
 
-  # Skip if today is in a holiday range
   - condition: template
     value_template: >
       {% set items = state_attr(holiday_sensor,'Items') or state_attr(holiday_sensor,'items') or [] %}
@@ -86,7 +69,6 @@ condition:
       {% for it in items %}
         {% set s = (as_datetime(it.start).date() if (it.start is defined and it.start) else none) %}
         {% set e = (as_datetime(it.end).date()   if (it.end   is defined and it.end)   else none) %}
-        {# Treat 'end' as exclusive (common pattern where end is 00:00 of next day) #}
         {% if s and e and (today >= s) and (today < e) %}
           {% set in_holiday = true %}
         {% elif s and not e and (today == s) %}
@@ -120,7 +102,7 @@ variables:
         {% if as_datetime(it.lesson_date).date() == today %}
           {% set subj = it.subject_name or it.subject or 'מקצוע' %}
           {% set hw = (it.homework or it.remark or '') | replace('\n',' ') %}
-          {% set _ = lines.append(subj ~ ': ' ~ hw) %}
+          {% set lines = lines + [subj ~ ': ' ~ hw] %}
         {% endif %}
       {% endif %}
     {% endfor %}
@@ -135,7 +117,7 @@ variables:
         {% if as_datetime(it.lesson_date).date() == today %}
           {% set subj = it.subject or 'מקצוע' %}
           {% set tag  = it.achva_name or it.event or 'אירוע' %}
-          {% set _ = lines.append(subj ~ ': ' ~ tag) %}
+          {% set lines = lines + [subj ~ ': ' ~ tag] %}
         {% endif %}
       {% endif %}
     {% endfor %}
@@ -145,13 +127,12 @@ variables:
     {{ (todays_homework | trim | length > 0) or (todays_behavior | trim | length > 0) }}
 
   announcement_text: >
-    {% set parts = [] %}
-    {% set _ = parts.append('שלום ' ~ student_name) %}
+    {% set parts = ['שלום ' ~ student_name] %}
     {% if todays_behavior | trim | length > 0 %}
-      {% set _ = parts.append('התנהגות היום: ' ~ todays_behavior) %}
+      {% set parts = parts + ['התנהגות היום: ' ~ todays_behavior] %}
     {% endif %}
     {% if todays_homework | trim | length > 0 %}
-      {% set _ = parts.append('שיעורי בית היום: ' ~ todays_homework) %}
+      {% set parts = parts + ['שיעורי בית היום: ' ~ todays_homework] %}
     {% endif %}
     {{ parts | join('. ') }}
 
@@ -161,44 +142,32 @@ action:
           - condition: template
             value_template: "{{ has_data_today }}"
         sequence:
-          # 1) Snapshot current volume
           - variables:
               prev_vol: "{{ state_attr(media_player,'volume_level') }}"
-
-          # 2) Set to max volume
           - service: media_player.volume_set
             target: { entity_id: !input media_player }
             data:
               volume_level: "{{ max_volume }}"
-
-          # 3) Wait briefly for volume attribute to reflect change
           - wait_template: >
               {{ (state_attr(media_player,'volume_level') or 0) >= (max_volume | float - 0.02) }}
             timeout: "00:00:05"
             continue_on_timeout: true
-
-          # 4) Speak (modern unified TTS)
           - service: "{{ tts_service }}"
             data:
               media_player_entity_id: !input media_player
               message: "{{ announcement_text }}"
               language: "{{ tts_language }}"
               cache: false
-
-          # --- Alternative (legacy Google Translate) ---
+          # Legacy example:
           # - service: tts.google_translate_say
           #   target: { entity_id: !input media_player }
           #   data:
           #     message: "{{ announcement_text }}"
           #     language: he
-
-          # 5) Wait for TTS playback to finish (player not playing/buffering)
           - wait_template: >
               {{ states(media_player) not in ['playing','buffering'] }}
             timeout: "00:02:00"
             continue_on_timeout: true
-
-          # 6) Restore previous volume (if known)
           - if:
               - condition: template
                 value_template: "{{ prev_vol is number }}"
