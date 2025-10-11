@@ -189,8 +189,7 @@ variables:
   # Build speech text (Hebrew)
   speech_text: >-
     {% set lessons = tomorrow_lessons_with_plan %}
-    {% if lessons | length == 0 %}
-    {% else %}
+    {% if lessons | length > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
       {% set parts = [] %}
       {% for l in lessons %}
@@ -199,6 +198,17 @@ variables:
         {% set parts = parts + [ full ] %}
       {% endfor %}
       {{ header ~ parts | join('. ') ~ '.' }}
+    {% else %}
+      {% set hi = 'שלום ' ~ student_name ~ '. ' %}
+      {% if is_tomorrow_sat %}
+        {{ hi ~ 'מחר שבת, אין לימודים.' }}
+      {% elif is_tomorrow_holiday %}
+        {{ hi ~ 'מחר חופש' ~ (': ' ~ (tomorrow_holiday_name or '') if (tomorrow_holiday_name | default('') | trim | length > 0) else '.') }}
+      {% elif not has_tomorrow_data %}
+        {{ hi ~ 'אין נתוני מערכת שעות למחר.' }}
+      {% else %}
+        {{ hi ~ 'אין פרטי שיעורים זמינים לרגע זה.' }}
+      {% endif %}
     {% endif %}
 
   # Should run?
