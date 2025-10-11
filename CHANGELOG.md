@@ -11,6 +11,17 @@
 ### Fixed
 - TBD
 
+## [0.1.61-beta.12] - 2025-10-11 (Pre-release)
+
+### Added
+- TBD
+
+### Changed
+- Blueprints: הדפסת טקסט TTS גם במסלולי Skip עבור `bag_reminder_tomorrow.yaml` ו-`mashov_daily_homework_announce.yaml`.
+
+### Fixed
+- TBD
+
 ## [0.1.61-beta.11] - 2025-10-04 (Pre-release)
 
 ### Added

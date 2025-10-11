@@ -147,7 +147,7 @@ action:
             service: logbook.log
             data:
               name: "Mashov announce"
-              message: "Skipped: Night window. Now={{ now_time }} Allow={{ allow_start }}–{{ allow_end }}"
+          message: "Skipped: Night window. Now={{ now_time }} Allow={{ allow_start }}–{{ allow_end }} | Speech=\"{{ announcement_text }}\""
               entity_id: !input media_player
           - stop: "Stop: outside allowed hours"
             error: false
@@ -163,7 +163,7 @@ action:
             service: logbook.log
             data:
               name: "Mashov announce"
-              message: "Skipped: Holiday detected by {{ holiday_sensor }}."
+          message: "Skipped: Holiday detected by {{ holiday_sensor }}. | Speech=\"{{ announcement_text }}\""
               entity_id: !input holiday_sensor
           - stop: "Stop: holiday"
             error: false
@@ -179,7 +179,7 @@ action:
             service: logbook.log
             data:
               name: "Mashov announce"
-              message: "Skipped: No items for today. HW='{{ todays_homework }}' | Behave='{{ todays_behavior }}'"
+          message: "Skipped: No items for today. HW='{{ todays_homework }}' | Behave='{{ todays_behavior }}' | Speech=\"{{ announcement_text }}\""
           - stop: "Stop: no data today"
             error: false
 

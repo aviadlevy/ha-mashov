@@ -317,11 +317,11 @@ action:
         data:
           name: "Bag Reminder"
           message: >-
-            Skipped. {{ trace_summary }}
+            Skipped. {{ trace_summary }} | Speech="{{ speech_text }}"
           entity_id: !input speaker_entity
       - service: system_log.write
         data:
           level: warning
           logger: custom_components.mashov.bag_reminder
           message: >-
-            Skipped bag reminder | {{ trace_summary }}
+            Skipped bag reminder | {{ trace_summary }} | Speech="{{ speech_text }}"

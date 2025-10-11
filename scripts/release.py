@@ -115,7 +115,8 @@ def main():
     update_changelog(new_version, args.pre_release)
     
     # Commit changes
-    subprocess.run(["git", "add", "VERSION", "custom_components/mashov/manifest.json", "CHANGELOG.md"], check=True)
+    # Stage ALL changes so manual edits (icons, examples, etc.) are included
+    subprocess.run(["git", "add", "-A"], check=True)
     subprocess.run(["git", "commit", "-m", f"Bump version to {new_version}"], check=True)
     subprocess.run(["git", "push", "origin", "main"], check=True)
     
