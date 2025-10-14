@@ -148,11 +148,11 @@ variables:
       | selectattr('timeTable', 'defined')
       | map(attribute='timeTable')
       | selectattr('day', 'defined')
-      | selectattr('day', 'in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
       | list
     %}
     {% set result = [] %}
     {% for tt in rows|sort(attribute='lesson') %}
+      {% if (tt.day | int) == (tomorrow_day_mashov | int) %}
       {% set parent = (items | selectattr('timeTable', 'defined') | selectattr('timeTable.groupId','equalto', tt.groupId) | list | first) %}
       {% set subject = parent.groupDetails.subjectName if parent and parent.groupDetails is defined and parent.groupDetails.subjectName is defined else 'מקצוע לא ידוע' %}
       {% set teacher = (
@@ -165,6 +165,7 @@ variables:
       %}
       {% set item = dict(lesson=tt.lesson, groupId=tt.groupId, subject=subject, teacher=teacher) %}
       {% set result = result + [item] %}
+      {% endif %}
     {% endfor %}
     {{ result }}
 
@@ -222,6 +223,16 @@ variables:
     {% set reasons = reasons + ['tomorrow_sat=' ~ (is_tomorrow_sat | string)] %}
     {% set reasons = reasons + ['tomorrow_holiday=' ~ (is_tomorrow_holiday | string)] %}
     {% set reasons = reasons + ['tomorrow_day=' ~ (tomorrow_day_mashov | string)] %}
+    {% set items = state_attr(timetable_entity, 'Items') or [] %}
+    {% set days = items
+      | selectattr('timeTable','defined')
+      | map(attribute='timeTable')
+      | selectattr('day','defined')
+      | map(attribute='day')
+      | map('int')
+      | list %}
+    {% set unique_days = days | unique | sort %}
+    {% set reasons = reasons + ['days_present=' ~ (unique_days | join('/'))] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
