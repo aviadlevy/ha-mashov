@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.27. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.29. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.27 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.29 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -193,6 +193,18 @@ variables:
     {% endfor %}
     {{ ns.out }}
 
+  # Data presence for tomorrow (define BEFORE subjects and speech)
+  has_data_cnt: >-
+    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
+    {% set cnt = (items
+      | selectattr('timeTable','defined')
+      | map(attribute='timeTable')
+      | selectattr('day','defined')
+      | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
+      | list | count) %}
+    {{ cnt }}
+  has_tomorrow_data: "{{ (has_data_cnt | int(0)) > 0 }}"
+
   # Unique subjects for tomorrow: prefer tomorrow_lessons; fallback to Items if empty
   tomorrow_subjects_unique: >-
     {% set subs1 = (tomorrow_lessons | map(attribute='subject') | list) %}
@@ -220,49 +232,22 @@ variables:
 
   # Count of unique subjects for tomorrow and speak guard
   subjects_cnt: "{{ (tomorrow_subjects_unique | length) }}"
-  should_speak: "{{ (has_tomorrow_data and (subjects_cnt | int(0)) > 0) | string }}"
-
-  # Data presence for tomorrow (define BEFORE speech_text)
-  has_data_cnt: >-
-    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
-    {% set cnt = (items
-      | selectattr('timeTable','defined')
-      | map(attribute='timeTable')
-      | selectattr('day','defined')
-      | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
-      | list | count) %}
-    {{ cnt }}
-  has_tomorrow_data: "{{ (has_data_cnt | int(0)) > 0 }}"
+  should_speak: "{{ (has_tomorrow_data and (subjects_cnt | int(0)) > 0) }}"
   should_run: "{{ (not is_night_block) and (not is_tomorrow_sat) and (not is_tomorrow_holiday) and has_tomorrow_data }}"
-
-  # Optional: add plan text from weekly_plan_entity when the same group_id matches by date
-  tomorrow_lessons_with_plan: >-
-    {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
-    {% set plans_today = plans
-        | selectattr('lesson_date','defined')
-        | selectattr('plan','defined')
-        | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
-        | list
-    %}
-    {% set out = [] %}
-    {% for r in tomorrow_lessons %}
-      {% set p = (plans_today | selectattr('group_id','equalto', r.groupId) | list | first) %}
-      {% set plan = (p.plan if p is defined else '') %}
-      {% set merged = dict(r, **{'plan': plan}) %}
-      {% set out = out + [merged] %}
-    {% endfor %}
-    {{ out }}
 
   # Build speech text (Hebrew) with optional plan, sorted by lesson number
   speech_text: >-
     {% set base_lessons = tomorrow_lessons | sort(attribute='lesson') %}
-    {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
-    {% set plans_today = plans
-        | selectattr('lesson_date','defined')
-        | selectattr('plan','defined')
-        | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
-        | list
-    %}
+    {% set plans = state_attr(weekly_plan_entity, 'Items') or state_attr(weekly_plan_entity, 'items') or [] %}
+    {% set plans_today = [] %}
+    {% if weekly_plan_entity and plans %}
+      {% set plans_today = plans
+          | selectattr('lesson_date','defined')
+          | selectattr('plan','defined')
+          | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
+          | list
+      %}
+    {% endif %}
     {% if (base_lessons | length) > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
       {% set ns = namespace(parts=[], seen=[]) %}
@@ -274,8 +259,10 @@ variables:
           {% set gid = les['groupId'] if 'groupId' in les else none %}
           {% set ns_inner = namespace(plan_text='') %}
           {% for p in plans_today %}
-            {% if p.group_id == gid and p.plan is defined and p.plan %}
-              {% set ns_inner.plan_text = p.plan | trim %}
+            {% set p_gid = (p.group_id if 'group_id' in p else (p.groupId if 'groupId' in p else none)) %}
+            {% set p_plan = (p.plan if 'plan' in p else '') %}
+            {% if p_gid == gid and p_plan %}
+              {% set ns_inner.plan_text = p_plan | trim %}
             {% endif %}
           {% endfor %}
           {% set full = 'שיעור ' ~ lesson_num ~ ': ' ~ subj ~ ('. תוכנית: ' ~ ns_inner.plan_text if ns_inner.plan_text else '') %}
@@ -340,33 +327,36 @@ variables:
     {% set first_has_tt = ('timeTable' in first_item) %}
     {% set first_tt_day = (first_item['timeTable']['day'] if 'timeTable' in first_item and 'day' in first_item['timeTable'] else 'NONE') %}
     {% set reasons = reasons + ['first_has_tt=' ~ (first_has_tt | string), 'first_tt_day=' ~ (first_tt_day | string), 'tomorrow_day=' ~ (tomorrow_day_mashov | string)] %}
-    {% set all_days = [] %}
+    {% set ns_days = namespace(all_days=[]) %}
     {% for it in items %}
       {% if 'timeTable' in it and 'day' in it['timeTable'] %}
-        {% set all_days = all_days + [ (it['timeTable']['day'] | int) ] %}
+        {% set ns_days.all_days = ns_days.all_days + [ (it['timeTable']['day'] | int) ] %}
       {% endif %}
     {% endfor %}
-    {% set reasons = reasons + ['all_days=' ~ (all_days | join('/'))] %}
-    {% set sfd_temp = [] %}
+    {% set reasons = reasons + ['all_days=' ~ (ns_days.all_days | join('/'))] %}
+    {% set ns_subj = namespace(sfd_temp=[]) %}
     {% for it in items %}
       {% if 'timeTable' in it and 'day' in it['timeTable'] %}
         {% if ((it['timeTable']['day'] | int) == (tomorrow_day_mashov | int)) %}
           {% if 'groupDetails' in it and 'subjectName' in it['groupDetails'] %}
-            {% set sfd_temp = sfd_temp + [ it['groupDetails']['subjectName'] ] %}
+            {% set ns_subj.sfd_temp = ns_subj.sfd_temp + [ it['groupDetails']['subjectName'] ] %}
           {% endif %}
         {% endif %}
       {% endif %}
     {% endfor %}
-    {% set subjects_for_day = sfd_temp %}
-    {% set reasons = reasons + ['subjects_for_day=' ~ (subjects_for_day | join('/'))] %}
+    {% set reasons = reasons + ['subjects_for_day=' ~ (ns_subj.sfd_temp | join('/'))] %}
     {% set reasons = reasons + ['subjects_cnt=' ~ ((subjects_cnt | int(0)) | string), 'should_speak=' ~ ((should_speak | string) if (should_speak is defined) else 'false'), 'subjects_list=' ~ ((tomorrow_subjects_unique | join('/')))] %}
-    {% set plans_all = state_attr(weekly_plan_entity, 'Items') or [] %}
-    {% set plans_tmr = plans_all
-        | selectattr('lesson_date','defined')
-        | selectattr('plan','defined')
-        | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
-        | list %}
-    {% set reasons = reasons + ['plans_all_cnt=' ~ ((plans_all | length) | string), 'plans_tmr_cnt=' ~ ((plans_tmr | length) | string)] %}
+    {% set plans_all = state_attr(weekly_plan_entity, 'Items') or state_attr(weekly_plan_entity, 'items') or [] %}
+    {% set plans_tmr = [] %}
+    {% if plans_all %}
+      {% set plans_tmr = plans_all
+          | selectattr('lesson_date','defined')
+          | selectattr('plan','defined')
+          | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
+          | list %}
+    {% endif %}
+    {% set wp_entity_state = states(weekly_plan_entity) if weekly_plan_entity else 'NO_ENTITY' %}
+    {% set reasons = reasons + ['weekly_plan_entity=' ~ (weekly_plan_entity | string), 'wp_state=' ~ wp_entity_state, 'plans_all_cnt=' ~ ((plans_all | length) | string), 'plans_tmr_cnt=' ~ ((plans_tmr | length) | string)] %}
     {% set tmr_les_first = tomorrow_lessons[0] if (tomorrow_lessons | length) > 0 else {} %}
     {% set tmr_les_first_subj = tmr_les_first['subject'] if 'subject' in tmr_les_first else 'NONE' %}
     {% set tmr_les_first_lesson = tmr_les_first['lesson'] if 'lesson' in tmr_les_first else 'NONE' %}
