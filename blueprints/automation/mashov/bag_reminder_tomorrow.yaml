@@ -143,7 +143,7 @@ variables:
 
   # Pull tomorrow's timetable entries (Items[].timeTable) for Mashov day; sort by lesson
   tomorrow_lessons: >-
-    {% set items = state_attr(timetable_entity, 'Items') or [] %}
+    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
     {% set rows = items
       | selectattr('timeTable', 'defined')
       | map(attribute='timeTable')
@@ -223,7 +223,7 @@ variables:
     {% set reasons = reasons + ['tomorrow_sat=' ~ (is_tomorrow_sat | string)] %}
     {% set reasons = reasons + ['tomorrow_holiday=' ~ (is_tomorrow_holiday | string)] %}
     {% set reasons = reasons + ['tomorrow_day=' ~ (tomorrow_day_mashov | string)] %}
-    {% set items = state_attr(timetable_entity, 'Items') or [] %}
+    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
     {% set days = items
       | selectattr('timeTable','defined')
       | map(attribute='timeTable')
