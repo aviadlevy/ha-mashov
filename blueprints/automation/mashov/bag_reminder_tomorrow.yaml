@@ -148,7 +148,7 @@ variables:
       | selectattr('timeTable', 'defined')
       | map(attribute='timeTable')
       | selectattr('day', 'defined')
-      | selectattr('day', 'equalto', tomorrow_day_mashov | int)
+      | selectattr('day', 'in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
       | list
     %}
     {% set result = [] %}
@@ -221,6 +221,7 @@ variables:
     {% set reasons = reasons + ['night_block=' ~ (is_night_block | string)] %}
     {% set reasons = reasons + ['tomorrow_sat=' ~ (is_tomorrow_sat | string)] %}
     {% set reasons = reasons + ['tomorrow_holiday=' ~ (is_tomorrow_holiday | string)] %}
+    {% set reasons = reasons + ['tomorrow_day=' ~ (tomorrow_day_mashov | string)] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
