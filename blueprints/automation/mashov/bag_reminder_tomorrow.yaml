@@ -193,6 +193,24 @@ variables:
     {% endfor %}
     {{ result }}
 
+  # Unique subjects for tomorrow (directly from Items)
+  tomorrow_subjects_unique: >-
+    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
+    {% set rows = items
+      | selectattr('timeTable', 'defined')
+      | map(attribute='timeTable')
+      | selectattr('day', 'defined')
+      | list %}
+    {% set subs = [] %}
+    {% for tt in rows %}
+      {% if (tt.day | int) == (tomorrow_day_mashov | int) %}
+        {% set parent = (items | selectattr('timeTable', 'defined') | selectattr('timeTable.groupId','equalto', tt.groupId) | list | first) %}
+        {% set subject = parent.groupDetails.subjectName if parent and parent.groupDetails is defined and parent.groupDetails.subjectName is defined else 'מקצוע לא ידוע' %}
+        {% set subs = subs + [ (subject | string | trim) ] %}
+      {% endif %}
+    {% endfor %}
+    {{ subs | reject('equalto','') | unique | list }}
+
   # Optional: add plan text from weekly_plan_entity when the same group_id matches by date
   tomorrow_lessons_with_plan: >-
     {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
@@ -213,12 +231,10 @@ variables:
 
   # Build speech text (Hebrew)
   speech_text: >-
-    {% set lessons = tomorrow_lessons %}
-    {% set subjects = lessons | map(attribute='subject') | list %}
-    {% set unique_subjects = subjects | unique | list %}
-    {% if unique_subjects | length > 0 %}
+    {% set subjects = tomorrow_subjects_unique %}
+    {% if subjects | length > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
-      {{ header ~ (unique_subjects | join(', ')) ~ '.' }}
+      {{ header ~ (subjects | join(', ')) ~ '.' }}
     {% else %}
       {% set hi = 'שלום ' ~ student_name ~ '. ' %}
       {% if is_tomorrow_sat %}
@@ -276,6 +292,8 @@ variables:
       | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
       | list | count) %}
     {% set reasons = reasons + ['rows_cnt=' ~ rows_cnt, 'rows_for_day_cnt=' ~ rows_for_day_cnt, 'has_data_cnt=' ~ (has_data_cnt | string)] %}
+    {% set sub_cnt = (tomorrow_subjects_unique | length) %}
+    {% set reasons = reasons + ['subjects_cnt=' ~ sub_cnt] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
