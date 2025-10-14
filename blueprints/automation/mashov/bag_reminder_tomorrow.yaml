@@ -307,69 +307,75 @@ action:
               message: "Starting run. {{ trace_summary }}"
               entity_id: !input speaker_entity
 
-          # Turn on & capture current volume
-          - variables:
-              prev_volume: "{{ state_attr(speaker_entity, 'volume_level') }}"
-              target_volume: "{{ max_volume | float }}"
-          - service: media_player.turn_on
-            target: { entity_id: !input speaker_entity }
-          - wait_template: "{{ states(speaker_entity) != 'off' }}"
-            timeout: "00:00:10"
-            continue_on_timeout: true
-
-          # Set to max volume
-          - service: media_player.volume_set
-            target: { entity_id: !input speaker_entity }
-            data:
-              volume_level: "{{ target_volume }}"
-          - wait_template: "{{ (state_attr(speaker_entity, 'volume_level') | float(0)) >= (target_volume | float(0)) }}"
-            timeout: "00:00:10"
-            continue_on_timeout: true
-
-          # Speak (choose TTS engine)
+          # Audio path only when we actually plan to speak
           - choose:
               - conditions:
                   - condition: template
-                    value_template: "{{ tts_service_type == 'cloud_say' and should_speak }}"
+                    value_template: "{{ should_speak }}"
                 sequence:
-                  - service: tts.cloud_say
-                    data:
-                      entity_id: !input speaker_entity
-                      message: "{{ speech_text }}"
-                      language: "{{ cloud_lang_effective }}"
-              - conditions:
-                  - condition: template
-                    value_template: "{{ tts_service_type == 'google_translate' and should_speak }}"
-                sequence:
-                  - service: tts.google_translate_say
-                    data:
-                      entity_id: !input speaker_entity
-                      message: "{{ speech_text }}"
-                      language: "{{ google_lang_effective }}"
+                  # Turn on & capture current volume
+                  - variables:
+                      prev_volume: "{{ state_attr(speaker_entity, 'volume_level') }}"
+                      target_volume: "{{ max_volume | float }}"
+                  - service: media_player.turn_on
+                    target: { entity_id: !input speaker_entity }
+                  - wait_template: "{{ states(speaker_entity) != 'off' }}"
+                    timeout: "00:00:10"
+                    continue_on_timeout: true
 
-          # Wait until TTS finishes (player not playing/buffering)
-          - wait_template: >-
-              {% set s = states(speaker_entity) %}
-              {{ s not in ['playing','buffering'] }}
-            timeout: "00:05:00"
-            continue_on_timeout: true
-
-          # Restore volume (previous if available, else fallback)
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ use_previous_volume and (prev_volume is number) }}"
-                sequence:
+                  # Set to max volume
                   - service: media_player.volume_set
                     target: { entity_id: !input speaker_entity }
                     data:
-                      volume_level: "{{ prev_volume | float }}"
-              - conditions: []
-                sequence:
-                  - service: media_player.volume_set
-                    target: { entity_id: !input speaker_entity }
-                    data:
-                      volume_level: "{{ restore_volume_default | float }}"
+                      volume_level: "{{ target_volume }}"
+                  - wait_template: "{{ (state_attr(speaker_entity, 'volume_level') | float(0)) >= (target_volume | float(0)) }}"
+                    timeout: "00:00:10"
+                    continue_on_timeout: true
+
+                  # Speak (choose TTS engine)
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ tts_service_type == 'cloud_say' }}"
+                        sequence:
+                          - service: tts.cloud_say
+                            data:
+                              entity_id: !input speaker_entity
+                              message: "{{ speech_text }}"
+                              language: "{{ cloud_lang_effective }}"
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ tts_service_type == 'google_translate' }}"
+                        sequence:
+                          - service: tts.google_translate_say
+                            data:
+                              entity_id: !input speaker_entity
+                              message: "{{ speech_text }}"
+                              language: "{{ google_lang_effective }}"
+
+                  # Wait until TTS finishes (player not playing/buffering)
+                  - wait_template: >-
+                      {% set s = states(speaker_entity) %}
+                      {{ s not in ['playing','buffering'] }}
+                    timeout: "00:05:00"
+                    continue_on_timeout: true
+
+                  # Restore volume (previous if available, else fallback)
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ use_previous_volume and (prev_volume is number) }}"
+                        sequence:
+                          - service: media_player.volume_set
+                            target: { entity_id: !input speaker_entity }
+                            data:
+                              volume_level: "{{ prev_volume | float }}"
+                      - conditions: []
+                        sequence:
+                          - service: media_player.volume_set
+                            target: { entity_id: !input speaker_entity }
+                            data:
+                              volume_level: "{{ restore_volume_default | float }}"
 
           # TRACE: done
           - service: logbook.log
