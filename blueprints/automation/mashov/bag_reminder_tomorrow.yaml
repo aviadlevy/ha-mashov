@@ -211,6 +211,10 @@ variables:
     {% endfor %}
     {{ subs | reject('equalto','') | unique | list }}
 
+  # Count of unique subjects for tomorrow and speak guard
+  subjects_cnt: "{{ (tomorrow_subjects_unique | length) }}"
+  should_speak: "{{ has_tomorrow_data and (subjects_cnt | int(0)) > 0 }}"
+
   # Optional: add plan text from weekly_plan_entity when the same group_id matches by date
   tomorrow_lessons_with_plan: >-
     {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
@@ -292,8 +296,7 @@ variables:
       | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
       | list | count) %}
     {% set reasons = reasons + ['rows_cnt=' ~ rows_cnt, 'rows_for_day_cnt=' ~ rows_for_day_cnt, 'has_data_cnt=' ~ (has_data_cnt | string)] %}
-    {% set sub_cnt = (tomorrow_subjects_unique | length) %}
-    {% set reasons = reasons + ['subjects_cnt=' ~ sub_cnt] %}
+    {% set reasons = reasons + ['subjects_cnt=' ~ (subjects_cnt | string), 'should_speak=' ~ (should_speak | string)] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
@@ -338,7 +341,7 @@ action:
           - choose:
               - conditions:
                   - condition: template
-                    value_template: "{{ tts_service_type == 'cloud_say' and has_tomorrow_data }}"
+                    value_template: "{{ tts_service_type == 'cloud_say' and should_speak }}"
                 sequence:
                   - service: tts.cloud_say
                     data:
@@ -347,7 +350,7 @@ action:
                       language: "{{ cloud_lang_effective }}"
               - conditions:
                   - condition: template
-                    value_template: "{{ tts_service_type == 'google_translate' and has_tomorrow_data }}"
+                    value_template: "{{ tts_service_type == 'google_translate' and should_speak }}"
                 sequence:
                   - service: tts.google_translate_say
                     data:
