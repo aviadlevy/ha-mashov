@@ -52,7 +52,7 @@ blueprint:
       selector: { boolean: {} }
     tts_service_type:
       name: TTS service
-      description: Choose your TTS. Google Translate uses language code **he** for Hebrew (not iw).
+      description: Choose your TTS. For Google Translate use Hebrew code **iw** (cloud_say prefers **he-IL**).
       default: google_translate
       selector:
         select:
@@ -61,8 +61,8 @@ blueprint:
             - cloud_say
     language_code:
       name: TTS language code
-      description: For Google Translate Hebrew use **he**
-      default: he
+      description: For Google Translate Hebrew use **iw** (default). For cloud_say use **he-IL**.
+      default: iw
       selector: { text: {} }
 
 mode: single
