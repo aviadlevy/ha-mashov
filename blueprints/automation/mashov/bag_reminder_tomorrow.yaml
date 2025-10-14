@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.9. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.10. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.9 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.10 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -165,42 +165,33 @@ variables:
         or 'תלמיד/ה' %}
     {{ (raw | string).split('(')[0].strip() }}
 
-  # Pull tomorrow's timetable entries (Items[].timeTable) for Mashov day; sort by lesson
+  # Pull tomorrow's timetable entries directly from Items for the Mashov day; sort by lesson
   tomorrow_lessons: >-
     {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
-    {% set rows = items
-      | selectattr('timeTable', 'defined')
-      | map(attribute='timeTable')
-      | selectattr('day', 'defined')
-      | list
-    %}
-    {% set rows_for_day = [] %}
-    {% for tt in rows %}
-      {% if (tt.day | int) == (tomorrow_day_mashov | int) %}
-        {% set rows_for_day = rows_for_day + [tt] %}
-      {% endif %}
-    {% endfor %}
-    {% set result = [] %}
-    {% for tt in rows_for_day %}
-      {% set parent = (items | selectattr('timeTable', 'defined') | selectattr('timeTable.groupId','equalto', tt.groupId) | list | first) %}
+    {% set entries = items
+      | selectattr('timeTable','defined')
+      | selectattr('timeTable.day','defined')
+      | selectattr('timeTable.day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
+      | sort(attribute='timeTable.lesson')
+      | list %}
+    {% set out = [] %}
+    {% for it in entries %}
+      {% set gd = it.groupDetails if it.groupDetails is defined else none %}
       {% set subject = (
-            parent.groupDetails.subjectName
-            if parent and parent.groupDetails is defined and parent.groupDetails.subjectName is defined
-            else (parent.groupDetails.groupName if parent and parent.groupDetails is defined and parent.groupDetails.groupName is defined
-            else (parent.subjectName if parent and parent.subjectName is defined else (parent.groupName if parent and parent.groupName is defined else 'מקצוע לא ידוע')))
+            gd.subjectName if gd and gd.subjectName is defined
+            else (gd.groupName if gd and gd.groupName is defined
+            else (it.subjectName if it.subjectName is defined else (it.groupName if it.groupName is defined else 'מקצוע לא ידוע')))
         ) %}
       {% set teacher = (
-            (parent.groupTeachers|first).teacherName
-            if parent and parent.groupTeachers is defined
-            and (parent.groupTeachers|list|count) > 0
-            and (parent.groupTeachers|first).teacherName is defined
+            (it.groupTeachers|first).teacherName
+            if it.groupTeachers is defined and (it.groupTeachers|list|count) > 0 and (it.groupTeachers|first).teacherName is defined
             else 'מורה'
-        )
-      %}
+        ) %}
+      {% set tt = it.timeTable %}
       {% set item = dict(lesson=tt.lesson, groupId=tt.groupId, subject=subject, teacher=teacher) %}
-      {% set result = result + [item] %}
+      {% set out = out + [item] %}
     {% endfor %}
-    {{ result }}
+    {{ out }}
 
   # Unique subjects for tomorrow: prefer tomorrow_lessons; fallback to Items if empty
   tomorrow_subjects_unique: >-
