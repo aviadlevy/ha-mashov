@@ -213,16 +213,12 @@ variables:
 
   # Build speech text (Hebrew)
   speech_text: >-
-    {% set lessons = tomorrow_lessons_with_plan %}
-    {% if lessons | length > 0 %}
+    {% set lessons = tomorrow_lessons %}
+    {% set subjects = lessons | map(attribute='subject') | list %}
+    {% set unique_subjects = subjects | unique %}
+    {% if unique_subjects | length > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
-      {% set parts = [] %}
-      {% for l in lessons %}
-        {% set base = l.subject ~ ' עם ' ~ l.teacher %}
-        {% set full = base ~ ('. תוכנית: ' ~ l.plan if (l.plan | trim | length > 0) else '') %}
-        {% set parts = parts + [ full ] %}
-      {% endfor %}
-      {{ header ~ parts | join('. ') ~ '.' }}
+      {{ header ~ (unique_subjects | join(', ')) ~ '.' }}
     {% else %}
       {% set hi = 'שלום ' ~ student_name ~ '. ' %}
       {% if is_tomorrow_sat %}
@@ -324,7 +320,7 @@ action:
           - choose:
               - conditions:
                   - condition: template
-                    value_template: "{{ tts_service_type == 'cloud_say' }}"
+                    value_template: "{{ tts_service_type == 'cloud_say' and has_tomorrow_data }}"
                 sequence:
                   - service: tts.cloud_say
                     data:
@@ -333,7 +329,7 @@ action:
                       language: "{{ cloud_lang_effective }}"
               - conditions:
                   - condition: template
-                    value_template: "{{ tts_service_type == 'google_translate' }}"
+                    value_template: "{{ tts_service_type == 'google_translate' and has_tomorrow_data }}"
                 sequence:
                   - service: tts.google_translate_say
                     data:
