@@ -65,6 +65,12 @@ blueprint:
       default: iw
       selector: { text: {} }
 
+    bp_version_info:
+      name: Blueprint version
+      description: Informational only; used in traces. Do not change.
+      default: "bag_reminder_tomorrow v1.0.6 (2025-10-14)"
+      selector: { text: {} }
+
 mode: single
 trace:
   stored_traces: 50
@@ -78,8 +84,8 @@ variables:
   weekly_plan_entity: !input weekly_plan_entity
   holiday_entity: !input holiday_entity
   speaker_entity: !input speaker_entity
-  # Blueprint version for trace/debug
-  blueprint_version: "bag_reminder_tomorrow v1.0.6 (2025-10-14)"
+  # Blueprint version for trace/debug (from form)
+  blueprint_version: !input bp_version_info
   quiet_start: !input quiet_window_start
   quiet_end: !input quiet_window_end
   max_volume: !input max_volume
