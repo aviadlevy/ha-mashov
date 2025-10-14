@@ -79,7 +79,7 @@ variables:
   holiday_entity: !input holiday_entity
   speaker_entity: !input speaker_entity
   # Blueprint version for trace/debug
-  blueprint_version: "bag_reminder_tomorrow v1.0.4 (2025-10-14)"
+  blueprint_version: "bag_reminder_tomorrow v1.0.6 (2025-10-14)"
   quiet_start: !input quiet_window_start
   quiet_end: !input quiet_window_end
   max_volume: !input max_volume
