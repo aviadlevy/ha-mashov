@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.20. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.21. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.20 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.21 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -311,9 +311,18 @@ variables:
       | selectattr('subjectName','defined') | map(attribute='subjectName') | list %}
     {% set reasons = reasons + ['subjects_raw=' ~ (subjects_raw_items | join('/'))] %}
     {% set first_item = items[0] if (items | length) > 0 else {} %}
+    {% set reasons = reasons + ['items_len=' ~ ((items | length) | string)] %}
     {% set reasons = reasons + ['first_item_keys=' ~ (first_item.keys() | list | join('/'))] %}
-    {% set first_tt_day = (first_item.timeTable.day if first_item.timeTable is defined and first_item.timeTable.day is defined else 'NONE') %}
-    {% set reasons = reasons + ['first_tt_day=' ~ (first_tt_day | string), 'tomorrow_day=' ~ (tomorrow_day_mashov | string)] %}
+    {% set first_has_tt = ('timeTable' in first_item) %}
+    {% set first_tt_day = (first_item['timeTable']['day'] if 'timeTable' in first_item and 'day' in first_item['timeTable'] else 'NONE') %}
+    {% set reasons = reasons + ['first_has_tt=' ~ (first_has_tt | string), 'first_tt_day=' ~ (first_tt_day | string), 'tomorrow_day=' ~ (tomorrow_day_mashov | string)] %}
+    {% set all_days = [] %}
+    {% for it in items %}
+      {% if 'timeTable' in it and 'day' in it['timeTable'] %}
+        {% set all_days = all_days + [ (it['timeTable']['day'] | int) ] %}
+      {% endif %}
+    {% endfor %}
+    {% set reasons = reasons + ['all_days=' ~ (all_days | join('/'))] %}
     {% set sfd_temp = [] %}
     {% for it in items %}
       {% if 'timeTable' in it and 'day' in it['timeTable'] %}
