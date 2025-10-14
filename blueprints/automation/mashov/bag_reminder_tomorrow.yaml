@@ -216,8 +216,17 @@ variables:
       {% endif %}
     {% endif %}
 
-  # Should run?
-  has_tomorrow_data: "{{ (tomorrow_lessons | length) > 0 }}"
+  # Should run? (use direct count from Items to avoid any upstream issues)
+  has_data_cnt: >-
+    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
+    {% set cnt = (items
+      | selectattr('timeTable','defined')
+      | map(attribute='timeTable')
+      | selectattr('day','defined')
+      | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
+      | list | count) %}
+    {{ cnt }}
+  has_tomorrow_data: "{{ (has_data_cnt | int(0)) > 0 }}"
   should_run: "{{ (not is_night_block) and (not is_tomorrow_sat) and (not is_tomorrow_holiday) and has_tomorrow_data }}"
 
   # Pretty reasons for trace/log
@@ -244,7 +253,7 @@ variables:
       | selectattr('day','defined')
       | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
       | list | count) %}
-    {% set reasons = reasons + ['rows_cnt=' ~ rows_cnt, 'rows_for_day_cnt=' ~ rows_for_day_cnt] %}
+    {% set reasons = reasons + ['rows_cnt=' ~ rows_cnt, 'rows_for_day_cnt=' ~ rows_for_day_cnt, 'has_data_cnt=' ~ (has_data_cnt | string)] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
