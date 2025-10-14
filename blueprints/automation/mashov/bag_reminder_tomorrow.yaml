@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.21. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.22. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.21 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.22 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -220,7 +220,7 @@ variables:
 
   # Count of unique subjects for tomorrow and speak guard
   subjects_cnt: "{{ (tomorrow_subjects_unique | length) }}"
-  should_speak: "{{ has_tomorrow_data and (subjects_cnt | int(0)) > 0 }}"
+  should_speak: "{{ (has_tomorrow_data and (subjects_cnt | int(0)) > 0) | string }}"
 
   # Data presence for tomorrow (define BEFORE speech_text)
   has_data_cnt: >-
@@ -253,12 +253,20 @@ variables:
     {% endfor %}
     {{ out }}
 
-  # Build speech text (Hebrew)
+  # Build speech text (Hebrew) with optional plan
   speech_text: >-
+    {% set lessons = tomorrow_lessons_with_plan %}
     {% set subjects = tomorrow_subjects_unique %}
     {% if (subjects | length) > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
-      {{ header ~ (subjects | join(', ')) ~ '.' }}
+      {% set parts = [] %}
+      {% for subj in subjects %}
+        {% set lesson_with_plan = (lessons | selectattr('subject','equalto', subj) | list | first) %}
+        {% set plan_text = (lesson_with_plan.plan | trim if lesson_with_plan and lesson_with_plan.plan is defined and (lesson_with_plan.plan | trim | length) > 0 else '') %}
+        {% set full = subj ~ ('. תוכנית: ' ~ plan_text if plan_text else '') %}
+        {% set parts = parts + [full] %}
+      {% endfor %}
+      {{ header ~ (parts | join(', ')) ~ '.' }}
     {% else %}
       {% set hi = 'שלום ' ~ student_name ~ '. ' %}
       {% if is_tomorrow_sat %}
