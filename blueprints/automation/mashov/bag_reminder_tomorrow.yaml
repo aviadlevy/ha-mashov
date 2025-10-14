@@ -186,7 +186,8 @@ variables:
       {% set subject = (
             parent.groupDetails.subjectName
             if parent and parent.groupDetails is defined and parent.groupDetails.subjectName is defined
-            else (parent.groupDetails.groupName if parent and parent.groupDetails is defined and parent.groupDetails.groupName is defined else 'מקצוע לא ידוע')
+            else (parent.groupDetails.groupName if parent and parent.groupDetails is defined and parent.groupDetails.groupName is defined
+            else (parent.subjectName if parent and parent.subjectName is defined else (parent.groupName if parent and parent.groupName is defined else 'מקצוע לא ידוע')))
         ) %}
       {% set teacher = (
             (parent.groupTeachers|first).teacherName
@@ -212,10 +213,11 @@ variables:
       {% for it in items %}
         {% set d = (it.timeTable.day | default(0)) | int %}
         {% if d == (tomorrow_day_mashov | int) %}
+          {% set gd = it.groupDetails if it.groupDetails is defined else none %}
           {% set subject = (
-                it.groupDetails.subjectName
-                if it.groupDetails is defined and it.groupDetails.subjectName is defined
-                else (it.groupDetails.groupName if it.groupDetails is defined and it.groupDetails.groupName is defined else 'מקצוע לא ידוע')
+                gd.subjectName if gd and gd.subjectName is defined
+                else (gd.groupName if gd and gd.groupName is defined
+                else (it.subjectName if it.subjectName is defined else (it.groupName if it.groupName is defined else 'מקצוע לא ידוע')))
             ) %}
           {% set subs2 = subs2 + [ (subject | string | trim) ] %}
         {% endif %}
