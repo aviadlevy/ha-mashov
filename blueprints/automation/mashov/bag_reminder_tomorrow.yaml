@@ -215,6 +215,19 @@ variables:
   subjects_cnt: "{{ (tomorrow_subjects_unique | length) }}"
   should_speak: "{{ has_tomorrow_data and (subjects_cnt | int(0)) > 0 }}"
 
+  # Data presence for tomorrow (define BEFORE speech_text)
+  has_data_cnt: >-
+    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
+    {% set cnt = (items
+      | selectattr('timeTable','defined')
+      | map(attribute='timeTable')
+      | selectattr('day','defined')
+      | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
+      | list | count) %}
+    {{ cnt }}
+  has_tomorrow_data: "{{ (has_data_cnt | int(0)) > 0 }}"
+  should_run: "{{ (not is_night_block) and (not is_tomorrow_sat) and (not is_tomorrow_holiday) and has_tomorrow_data }}"
+
   # Optional: add plan text from weekly_plan_entity when the same group_id matches by date
   tomorrow_lessons_with_plan: >-
     {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
@@ -252,18 +265,7 @@ variables:
       {% endif %}
     {% endif %}
 
-  # Should run? (use direct count from Items to avoid any upstream issues)
-  has_data_cnt: >-
-    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
-    {% set cnt = (items
-      | selectattr('timeTable','defined')
-      | map(attribute='timeTable')
-      | selectattr('day','defined')
-      | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
-      | list | count) %}
-    {{ cnt }}
-  has_tomorrow_data: "{{ (has_data_cnt | int(0)) > 0 }}"
-  should_run: "{{ (not is_night_block) and (not is_tomorrow_sat) and (not is_tomorrow_holiday) and has_tomorrow_data }}"
+  
 
   # Pretty reasons for trace/log
   trace_summary: >-
