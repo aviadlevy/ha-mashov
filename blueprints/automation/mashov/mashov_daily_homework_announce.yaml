@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Daily Homework & Behavior Announcement (Trace-friendly)
   description: >
-    Version v1.0.2. Announces today's behavior & homework at 15:00, skips nights & holidays,
+    Version v1.0.3. Announces today's behavior & homework at 15:00, skips nights & holidays,
     raises volume, speaks (Hebrew), then restores volume.
     This version is TRACE-FRIENDLY: every decision path has an alias and a reason.
   source_url: https://raw.githubusercontent.com/NirBY/ha-mashov/main/blueprints/automation/mashov/mashov_daily_homework_announce.yaml
@@ -43,6 +43,12 @@ blueprint:
       default: iw
       selector: { text: {} }
 
+    bp_version_info:
+      name: Blueprint version
+      description: Informational only; used in traces. Do not change.
+      default: "mashov_daily_homework_announce v1.0.3 (2025-10-14)"
+      selector: { text: {} }
+
 mode: restart
 
 # Simple time trigger; ALL logic is traced inside the action choose paths.
@@ -58,6 +64,8 @@ variables:
   media_player: !input media_player
   max_volume: !input max_volume
   tts_language: !input tts_language
+  # Blueprint version for trace/debug (from form)
+  blueprint_version: !input bp_version_info
 
   # Window for allowed hours (for traces & manual runs)
   allow_start: "07:00:00"
@@ -147,7 +155,7 @@ action:
             service: logbook.log
             data:
               name: "Mashov announce"
-              message: "Skipped: Night window. Now={{ now_time }} Allow={{ allow_start }}–{{ allow_end }} | Speech=\"{{ announcement_text }}\""
+              message: "{{ blueprint_version }} | Skipped: Night window. Now={{ now_time }} Allow={{ allow_start }}–{{ allow_end }} | Speech=\"{{ announcement_text }}\""
               entity_id: !input media_player
           - stop: "Stop: outside allowed hours"
             error: false
@@ -163,7 +171,7 @@ action:
             service: logbook.log
             data:
               name: "Mashov announce"
-              message: "Skipped: Holiday detected by {{ holiday_sensor }}. | Speech=\"{{ announcement_text }}\""
+              message: "{{ blueprint_version }} | Skipped: Holiday detected by {{ holiday_sensor }}. | Speech=\"{{ announcement_text }}\""
               entity_id: !input holiday_sensor
           - stop: "Stop: holiday"
             error: false
@@ -179,7 +187,7 @@ action:
             service: logbook.log
             data:
               name: "Mashov announce"
-              message: "Skipped: No items for today. HW='{{ todays_homework }}' | Behave='{{ todays_behavior }}' | Speech=\"{{ announcement_text }}\""
+              message: "{{ blueprint_version }} | Skipped: No items for today. HW='{{ todays_homework }}' | Behave='{{ todays_behavior }}' | Speech=\"{{ announcement_text }}\""
           - stop: "Stop: no data today"
             error: false
 
@@ -192,6 +200,13 @@ action:
                                (now().time() >= strptime(allow_start, '%H:%M:%S').time()) and
                                (now().time() <= strptime(allow_end,  '%H:%M:%S').time()) }}"
         sequence:
+          - alias: "Log start"
+            service: logbook.log
+            data:
+              name: "Mashov announce"
+              message: "{{ blueprint_version }} | Starting announcement. HW='{{ todays_homework }}' | Behave='{{ todays_behavior }}'"
+              entity_id: !input media_player
+
           - alias: "Snapshot previous volume"
             variables:
               prev_vol: "{{ state_attr(media_player,'volume_level') }}"
@@ -240,5 +255,12 @@ action:
                 target: { entity_id: !input media_player }
                 data:
                   volume_level: "{{ prev_vol }}"
+
+          - alias: "Log completion"
+            service: logbook.log
+            data:
+              name: "Mashov announce"
+              message: "{{ blueprint_version }} | Completed successfully. Speech=\"{{ announcement_text }}\""
+              entity_id: !input media_player
 
     default: []
