@@ -91,6 +91,17 @@ variables:
     {% set lc = (language_code | lower) %}
     {{ 'he' if lc in ['iw','he-il','iw-il'] else lc }}
 
+  # Cloud TTS sometimes requires locale (e.g., he-IL). Provide a minimal mapping.
+  cloud_lang_effective: >-
+    {% set lc = lang_effective %}
+    {% if lc in ['he','iw','he-il','iw-il'] %}
+      he-IL
+    {% elif lc == 'en' %}
+      en-US
+    {% else %}
+      {{ lc }}
+    {% endif %}
+
   # Compute tomorrow (LOCAL timezone; do not force UTC)
   tomorrow_date_iso: "{{ (as_timestamp(now()) + 86400) | timestamp_custom('%Y-%m-%d') }}"
   # %w => 0..6 (Sun=0) in LOCAL timezone. Mashov day: Sun=1..Sat=7
@@ -236,6 +247,8 @@ variables:
     {% set reasons = reasons + ['tomorrow_sat=' ~ (is_tomorrow_sat | string)] %}
     {% set reasons = reasons + ['tomorrow_holiday=' ~ (is_tomorrow_holiday | string)] %}
     {% set reasons = reasons + ['tomorrow_day=' ~ (tomorrow_day_mashov | string)] %}
+    {% set reasons = reasons + ['tts=' ~ tts_service_type] %}
+    {% set reasons = reasons + ['tts_lang=' ~ (cloud_lang_effective if tts_service_type == 'cloud_say' else lang_effective)] %}
     {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
     {% set days = items
       | selectattr('timeTable','defined')
@@ -304,7 +317,7 @@ action:
                     data:
                       entity_id: !input speaker_entity
                       message: "{{ speech_text }}"
-                      language: "{{ lang_effective }}"
+                      language: "{{ cloud_lang_effective }}"
               - conditions:
                   - condition: template
                     value_template: "{{ tts_service_type == 'google_translate' }}"
