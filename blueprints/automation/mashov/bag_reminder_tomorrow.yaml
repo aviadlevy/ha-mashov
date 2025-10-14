@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.23. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.24. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.23 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.24 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -253,22 +253,20 @@ variables:
     {% endfor %}
     {{ out }}
 
-  # Build speech text (Hebrew) with optional plan
+  # Build speech text (Hebrew) with optional plan, sorted by lesson number
   speech_text: >-
-    {% set lessons = tomorrow_lessons_with_plan %}
-    {% set subjects = tomorrow_subjects_unique %}
-    {% if (subjects | length) > 0 %}
+    {% set lessons = tomorrow_lessons_with_plan | sort(attribute='lesson') %}
+    {% if (lessons | length) > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
       {% set parts = [] %}
-      {% for subj in subjects %}
-        {% set plan_text = '' %}
-        {% for les in lessons %}
-          {% if les.subject == subj and les.plan is defined and (les.plan | trim | length) > 0 %}
-            {% set plan_text = les.plan | trim %}
-          {% endif %}
-        {% endfor %}
-        {% set full = subj ~ ('. תוכנית: ' ~ plan_text if plan_text else '') %}
-        {% set parts = parts + [full] %}
+      {% set seen = [] %}
+      {% for les in lessons %}
+        {% if les.subject not in seen %}
+          {% set seen = seen + [les.subject] %}
+          {% set plan_text = (les.plan | trim if les.plan is defined and (les.plan | trim | length) > 0 else '') %}
+          {% set full = 'שיעור ' ~ les.lesson ~ ': ' ~ les.subject ~ ('. תוכנית: ' ~ plan_text if plan_text else '') %}
+          {% set parts = parts + [full] %}
+        {% endif %}
       {% endfor %}
       {{ header ~ (parts | join(', ')) ~ '.' }}
     {% else %}
