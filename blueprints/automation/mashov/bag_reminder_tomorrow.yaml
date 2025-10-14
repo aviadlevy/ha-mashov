@@ -78,6 +78,8 @@ variables:
   weekly_plan_entity: !input weekly_plan_entity
   holiday_entity: !input holiday_entity
   speaker_entity: !input speaker_entity
+  # Blueprint version for trace/debug
+  blueprint_version: "bag_reminder_tomorrow v1.0.4 (2025-10-14)"
   quiet_start: !input quiet_window_start
   quiet_end: !input quiet_window_end
   max_volume: !input max_volume
@@ -264,6 +266,7 @@ variables:
   # Pretty reasons for trace/log
   trace_summary: >-
     {% set reasons = [] %}
+    {% set reasons = reasons + ['bp_ver=' ~ blueprint_version] %}
     {% set reasons = reasons + ['night_block=' ~ (is_night_block | string)] %}
     {% set reasons = reasons + ['tomorrow_sat=' ~ (is_tomorrow_sat | string)] %}
     {% set reasons = reasons + ['tomorrow_holiday=' ~ (is_tomorrow_holiday | string)] %}
