@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.26. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.27. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.26 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.27 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -255,7 +255,7 @@ variables:
 
   # Build speech text (Hebrew) with optional plan, sorted by lesson number
   speech_text: >-
-    {% set base_lessons = tomorrow_lessons %}
+    {% set base_lessons = tomorrow_lessons | sort(attribute='lesson') %}
     {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
     {% set plans_today = plans
         | selectattr('lesson_date','defined')
@@ -265,25 +265,24 @@ variables:
     %}
     {% if (base_lessons | length) > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
-      {% set parts = [] %}
-      {% set seen = [] %}
+      {% set ns = namespace(parts=[], seen=[]) %}
       {% for les in base_lessons %}
         {% set subj = les['subject'] if 'subject' in les else 'מקצוע' %}
-        {% set lesson_num = les['lesson'] if 'lesson' in les else '?' %}
-        {% if subj not in seen %}
-          {% set seen = seen + [subj] %}
+        {% set lesson_num = les['lesson'] if 'lesson' in les else 0 %}
+        {% if subj not in ns.seen %}
+          {% set ns.seen = ns.seen + [subj] %}
           {% set gid = les['groupId'] if 'groupId' in les else none %}
-          {% set plan_text = '' %}
+          {% set ns_inner = namespace(plan_text='') %}
           {% for p in plans_today %}
-            {% if p.group_id == gid and p.plan is defined %}
-              {% set plan_text = p.plan | trim %}
+            {% if p.group_id == gid and p.plan is defined and p.plan %}
+              {% set ns_inner.plan_text = p.plan | trim %}
             {% endif %}
           {% endfor %}
-          {% set full = 'שיעור ' ~ lesson_num ~ ': ' ~ subj ~ ('. תוכנית: ' ~ plan_text if plan_text else '') %}
-          {% set parts = parts + [full] %}
+          {% set full = 'שיעור ' ~ lesson_num ~ ': ' ~ subj ~ ('. תוכנית: ' ~ ns_inner.plan_text if ns_inner.plan_text else '') %}
+          {% set ns.parts = ns.parts + [full] %}
         {% endif %}
       {% endfor %}
-      {{ header ~ (parts | join(', ')) ~ '.' }}
+      {{ header ~ (ns.parts | join(', ')) ~ '.' }}
     {% else %}
       {% set hi = 'שלום ' ~ student_name ~ '. ' %}
       {% if is_tomorrow_sat %}
