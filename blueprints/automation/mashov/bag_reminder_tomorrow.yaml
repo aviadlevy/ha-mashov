@@ -215,7 +215,7 @@ variables:
   speech_text: >-
     {% set lessons = tomorrow_lessons %}
     {% set subjects = lessons | map(attribute='subject') | list %}
-    {% set unique_subjects = subjects | unique %}
+    {% set unique_subjects = subjects | unique | list %}
     {% if unique_subjects | length > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
       {{ header ~ (unique_subjects | join(', ')) ~ '.' }}
@@ -266,7 +266,7 @@ variables:
       | map(attribute='day')
       | map('int')
       | list %}
-    {% set unique_days = days | unique | sort %}
+    {% set unique_days = days | unique | list | sort %}
     {% set reasons = reasons + ['days_present=' ~ (unique_days | join('/'))] %}
     {% set rows_cnt = (items | selectattr('timeTable','defined') | list | count) %}
     {% set rows_for_day_cnt = (items
