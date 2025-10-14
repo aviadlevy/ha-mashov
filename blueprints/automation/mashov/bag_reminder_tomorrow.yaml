@@ -193,10 +193,17 @@ variables:
     {% endfor %}
     {{ result }}
 
-  # Unique subjects for tomorrow (derived from tomorrow_lessons)
+  # Unique subjects for tomorrow (direct from Items, robust to shapes)
   tomorrow_subjects_unique: >-
-    {% set subs = tomorrow_lessons | map(attribute='subject') | list %}
-    {{ subs | map('string') | map('trim') | reject('equalto','') | unique | list }}
+    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
+    {% set subs = [] %}
+    {% for it in items %}
+      {% if it.timeTable is defined and it.timeTable.day is defined and (it.timeTable.day | int) == (tomorrow_day_mashov | int) %}
+        {% set subject = it.groupDetails.subjectName if it.groupDetails is defined and it.groupDetails.subjectName is defined else 'מקצוע לא ידוע' %}
+        {% set subs = subs + [ (subject | string | trim) ] %}
+      {% endif %}
+    {% endfor %}
+    {{ subs | reject('equalto','') | unique | list }}
 
   # Count of unique subjects for tomorrow and speak guard
   subjects_cnt: "{{ (tomorrow_subjects_unique | length) }}"
@@ -285,7 +292,7 @@ variables:
       | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
       | list | count) %}
     {% set reasons = reasons + ['rows_cnt=' ~ rows_cnt, 'rows_for_day_cnt=' ~ rows_for_day_cnt, 'has_data_cnt=' ~ (has_data_cnt | string)] %}
-    {% set reasons = reasons + ['subjects_cnt=' ~ ((subjects_cnt | int(0)) | string), 'should_speak=' ~ ((should_speak | string) if (should_speak is defined) else 'false')] %}
+    {% set reasons = reasons + ['subjects_cnt=' ~ ((subjects_cnt | int(0)) | string), 'should_speak=' ~ ((should_speak | string) if (should_speak is defined) else 'false'), 'subjects_list=' ~ ((tomorrow_subjects_unique | join('/')))] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
