@@ -193,23 +193,10 @@ variables:
     {% endfor %}
     {{ result }}
 
-  # Unique subjects for tomorrow (directly from Items)
+  # Unique subjects for tomorrow (derived from tomorrow_lessons)
   tomorrow_subjects_unique: >-
-    {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
-    {% set rows = items
-      | selectattr('timeTable', 'defined')
-      | map(attribute='timeTable')
-      | selectattr('day', 'defined')
-      | list %}
-    {% set subs = [] %}
-    {% for tt in rows %}
-      {% if (tt.day | int) == (tomorrow_day_mashov | int) %}
-        {% set parent = (items | selectattr('timeTable', 'defined') | selectattr('timeTable.groupId','equalto', tt.groupId) | list | first) %}
-        {% set subject = parent.groupDetails.subjectName if parent and parent.groupDetails is defined and parent.groupDetails.subjectName is defined else 'מקצוע לא ידוע' %}
-        {% set subs = subs + [ (subject | string | trim) ] %}
-      {% endif %}
-    {% endfor %}
-    {{ subs | reject('equalto','') | unique | list }}
+    {% set subs = tomorrow_lessons | map(attribute='subject') | list %}
+    {{ subs | map('string') | map('trim') | reject('equalto','') | unique | list }}
 
   # Count of unique subjects for tomorrow and speak guard
   subjects_cnt: "{{ (tomorrow_subjects_unique | length) }}"
@@ -249,7 +236,7 @@ variables:
   # Build speech text (Hebrew)
   speech_text: >-
     {% set subjects = tomorrow_subjects_unique %}
-    {% if subjects | length > 0 %}
+    {% if (subjects | length) > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
       {{ header ~ (subjects | join(', ')) ~ '.' }}
     {% else %}
@@ -258,7 +245,7 @@ variables:
         {{ hi ~ 'מחר שבת, אין לימודים.' }}
       {% elif is_tomorrow_holiday %}
         {{ hi ~ 'מחר חופש' ~ (': ' ~ (tomorrow_holiday_name or '') if (tomorrow_holiday_name | default('') | trim | length > 0) else '.') }}
-      {% elif not has_tomorrow_data %}
+      {% elif (has_data_cnt | int(0)) == 0 %}
         {{ hi ~ 'אין נתוני מערכת שעות למחר.' }}
       {% else %}
         {{ hi ~ 'אין פרטי שיעורים זמינים לרגע זה.' }}
@@ -298,7 +285,7 @@ variables:
       | selectattr('day','in', [ (tomorrow_day_mashov | int), ((tomorrow_day_mashov | int) | string) ])
       | list | count) %}
     {% set reasons = reasons + ['rows_cnt=' ~ rows_cnt, 'rows_for_day_cnt=' ~ rows_for_day_cnt, 'has_data_cnt=' ~ (has_data_cnt | string)] %}
-    {% set reasons = reasons + ['subjects_cnt=' ~ (subjects_cnt | string), 'should_speak=' ~ (should_speak | string)] %}
+    {% set reasons = reasons + ['subjects_cnt=' ~ ((subjects_cnt | int(0)) | string), 'should_speak=' ~ ((should_speak | string) if (should_speak is defined) else 'false')] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
