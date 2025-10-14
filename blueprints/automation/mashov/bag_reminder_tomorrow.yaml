@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.24. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.26. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.24 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.26 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -255,16 +255,31 @@ variables:
 
   # Build speech text (Hebrew) with optional plan, sorted by lesson number
   speech_text: >-
-    {% set lessons = tomorrow_lessons_with_plan | sort(attribute='lesson') %}
-    {% if (lessons | length) > 0 %}
+    {% set base_lessons = tomorrow_lessons %}
+    {% set plans = state_attr(weekly_plan_entity, 'Items') or [] %}
+    {% set plans_today = plans
+        | selectattr('lesson_date','defined')
+        | selectattr('plan','defined')
+        | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
+        | list
+    %}
+    {% if (base_lessons | length) > 0 %}
       {% set header = 'שלום ' ~ student_name ~ ', אנא לסדר תיק למחר. המקצועות למחר: ' %}
       {% set parts = [] %}
       {% set seen = [] %}
-      {% for les in lessons %}
-        {% if les.subject not in seen %}
-          {% set seen = seen + [les.subject] %}
-          {% set plan_text = (les.plan | trim if les.plan is defined and (les.plan | trim | length) > 0 else '') %}
-          {% set full = 'שיעור ' ~ les.lesson ~ ': ' ~ les.subject ~ ('. תוכנית: ' ~ plan_text if plan_text else '') %}
+      {% for les in base_lessons %}
+        {% set subj = les['subject'] if 'subject' in les else 'מקצוע' %}
+        {% set lesson_num = les['lesson'] if 'lesson' in les else '?' %}
+        {% if subj not in seen %}
+          {% set seen = seen + [subj] %}
+          {% set gid = les['groupId'] if 'groupId' in les else none %}
+          {% set plan_text = '' %}
+          {% for p in plans_today %}
+            {% if p.group_id == gid and p.plan is defined %}
+              {% set plan_text = p.plan | trim %}
+            {% endif %}
+          {% endfor %}
+          {% set full = 'שיעור ' ~ lesson_num ~ ': ' ~ subj ~ ('. תוכנית: ' ~ plan_text if plan_text else '') %}
           {% set parts = parts + [full] %}
         {% endif %}
       {% endfor %}
@@ -346,6 +361,18 @@ variables:
     {% set subjects_for_day = sfd_temp %}
     {% set reasons = reasons + ['subjects_for_day=' ~ (subjects_for_day | join('/'))] %}
     {% set reasons = reasons + ['subjects_cnt=' ~ ((subjects_cnt | int(0)) | string), 'should_speak=' ~ ((should_speak | string) if (should_speak is defined) else 'false'), 'subjects_list=' ~ ((tomorrow_subjects_unique | join('/')))] %}
+    {% set plans_all = state_attr(weekly_plan_entity, 'Items') or [] %}
+    {% set plans_tmr = plans_all
+        | selectattr('lesson_date','defined')
+        | selectattr('plan','defined')
+        | selectattr('lesson_date', 'search', '^' ~ tomorrow_date_iso )
+        | list %}
+    {% set reasons = reasons + ['plans_all_cnt=' ~ ((plans_all | length) | string), 'plans_tmr_cnt=' ~ ((plans_tmr | length) | string)] %}
+    {% set tmr_les_first = tomorrow_lessons[0] if (tomorrow_lessons | length) > 0 else {} %}
+    {% set tmr_les_first_subj = tmr_les_first['subject'] if 'subject' in tmr_les_first else 'NONE' %}
+    {% set tmr_les_first_lesson = tmr_les_first['lesson'] if 'lesson' in tmr_les_first else 'NONE' %}
+    {% set reasons = reasons + ['tmr_les_first_keys=' ~ (tmr_les_first.keys() | list | join('/') if tmr_les_first else 'EMPTY')] %}
+    {% set reasons = reasons + ['tmr_les_first_subj=' ~ tmr_les_first_subj, 'tmr_les_first_lesson=' ~ (tmr_les_first_lesson | string)] %}
     {% if is_tomorrow_holiday %}
       {% set reasons = reasons + ['holiday_name=' ~ (tomorrow_holiday_name or 'unknown')] %}
     {% endif %}
