@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.16. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.17. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.16 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.17 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -306,6 +306,8 @@ variables:
       | selectattr('timeTable','defined') | map(attribute='groupDetails')
       | selectattr('subjectName','defined') | map(attribute='subjectName') | list %}
     {% set reasons = reasons + ['subjects_raw=' ~ (subjects_raw_items | join('/'))] %}
+    {% set first_item = items[0] if (items | length) > 0 else {} %}
+    {% set reasons = reasons + ['first_item_keys=' ~ (first_item.keys() | list | join('/'))] %}
     {% set sfd_temp = [] %}
     {% for it in items %}
       {% if it.timeTable is defined and it.timeTable.day is defined %}
