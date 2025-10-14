@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.6 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.7 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
