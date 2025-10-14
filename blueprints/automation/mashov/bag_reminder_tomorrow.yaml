@@ -1,7 +1,7 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.15. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.16. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
@@ -68,7 +68,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.15 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.16 (2025-10-14)"
       selector: { text: {} }
 
 mode: single
@@ -165,26 +165,28 @@ variables:
         or 'תלמיד/ה' %}
     {{ (raw | string).split('(')[0].strip() }}
 
-  # Pull tomorrow's timetable entries: loop through Items and match day with int cast
+  # Pull tomorrow's timetable entries: direct loop without selectattr
   tomorrow_lessons: >-
     {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
     {% set out = [] %}
-    {% for it in (items | selectattr('timeTable','defined')) %}
-      {% set tt = it.timeTable %}
-      {% if tt.day is defined and ((tt.day | int) == (tomorrow_day_mashov | int)) %}
-        {% set gd = it.groupDetails if it.groupDetails is defined else none %}
-        {% set subject = (
-              gd.subjectName if gd and gd.subjectName is defined
-              else (gd.groupName if gd and gd.groupName is defined
-              else (it.subjectName if it.subjectName is defined else (it.groupName if it.groupName is defined else 'מקצוע לא ידוע')))
-          ) %}
-        {% set teacher = (
-              (it.groupTeachers|first).teacherName
-              if it.groupTeachers is defined and (it.groupTeachers|list|count) > 0 and (it.groupTeachers|first).teacherName is defined
-              else 'מורה'
-          ) %}
-        {% set item = dict(lesson=tt.lesson, groupId=tt.groupId, subject=subject, teacher=teacher) %}
-        {% set out = out + [item] %}
+    {% for it in items %}
+      {% if it.timeTable is defined and it.timeTable.day is defined %}
+        {% set tt = it.timeTable %}
+        {% if ((tt.day | int) == (tomorrow_day_mashov | int)) %}
+          {% set gd = it.groupDetails if it.groupDetails is defined else none %}
+          {% set subject = (
+                gd.subjectName if gd and gd.subjectName is defined
+                else (gd.groupName if gd and gd.groupName is defined
+                else (it.subjectName if it.subjectName is defined else (it.groupName if it.groupName is defined else 'מקצוע לא ידוע')))
+            ) %}
+          {% set teacher = (
+                (it.groupTeachers|first).teacherName
+                if it.groupTeachers is defined and (it.groupTeachers|list|count) > 0 and (it.groupTeachers|first).teacherName is defined
+                else 'מורה'
+            ) %}
+          {% set item = dict(lesson=tt.lesson, groupId=tt.groupId, subject=subject, teacher=teacher) %}
+          {% set out = out + [item] %}
+        {% endif %}
       {% endif %}
     {% endfor %}
     {{ out }}
@@ -305,10 +307,12 @@ variables:
       | selectattr('subjectName','defined') | map(attribute='subjectName') | list %}
     {% set reasons = reasons + ['subjects_raw=' ~ (subjects_raw_items | join('/'))] %}
     {% set sfd_temp = [] %}
-    {% for it in (items | selectattr('timeTable','defined')) %}
-      {% if it.timeTable.day is defined and ((it.timeTable.day | int) == (tomorrow_day_mashov | int)) %}
-        {% if it.groupDetails is defined and it.groupDetails.subjectName is defined %}
-          {% set sfd_temp = sfd_temp + [ it.groupDetails.subjectName ] %}
+    {% for it in items %}
+      {% if it.timeTable is defined and it.timeTable.day is defined %}
+        {% if ((it.timeTable.day | int) == (tomorrow_day_mashov | int)) %}
+          {% if it.groupDetails is defined and it.groupDetails.subjectName is defined %}
+            {% set sfd_temp = sfd_temp + [ it.groupDetails.subjectName ] %}
+          {% endif %}
         {% endif %}
       {% endif %}
     {% endfor %}
