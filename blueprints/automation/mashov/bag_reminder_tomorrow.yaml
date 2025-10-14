@@ -91,7 +91,7 @@ variables:
   # Normalize language for Google Translate: map deprecated "iw" -> "he"
   lang_effective: >-
     {% set lc = (language_code | lower) %}
-    {{ 'he' if lc in ['iw','he-il','iw-il'] else lc }}
+    {{ lc }}
 
   # Cloud TTS sometimes requires locale (e.g., he-IL). Provide a minimal mapping.
   cloud_lang_effective: >-
@@ -107,11 +107,7 @@ variables:
   # Google Translate TTS sometimes expects 'iw' for Hebrew. Map accordingly.
   google_lang_effective: >-
     {% set lc = lang_effective %}
-    {% if lc in ['he','he-il','iw','iw-il'] %}
-      iw
-    {% else %}
-      {{ lc }}
-    {% endif %}
+    {{ lc }}
 
   # Compute tomorrow (LOCAL timezone; do not force UTC)
   tomorrow_date_iso: "{{ (as_timestamp(now()) + 86400) | timestamp_custom('%Y-%m-%d') }}"
