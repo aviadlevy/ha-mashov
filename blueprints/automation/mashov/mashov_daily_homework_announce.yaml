@@ -1,9 +1,10 @@
 blueprint:
   name: Mashov – Daily Homework & Behavior Announcement (Trace-friendly)
   description: >
-    Version v1.0.3. Announces today's behavior & homework at 15:00, skips nights & holidays,
+    Version v1.0.4. Announces today's behavior & homework at 15:00, skips nights & holidays,
     raises volume, speaks (Hebrew), then restores volume.
     This version is TRACE-FRIENDLY: every decision path has an alias and a reason.
+    Fixed TTS completion timing to prevent volume restoration before speech ends.
   source_url: https://raw.githubusercontent.com/NirBY/ha-mashov/main/blueprints/automation/mashov/mashov_daily_homework_announce.yaml
   domain: automation
   input:
@@ -46,7 +47,7 @@ blueprint:
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "mashov_daily_homework_announce v1.0.3 (2025-10-14)"
+      default: "mashov_daily_homework_announce v1.0.4 (2025-10-15)"
       selector: { text: {} }
 
 mode: restart
@@ -243,6 +244,9 @@ action:
               {{ states(media_player) not in ['playing','buffering'] }}
             timeout: "00:02:00"
             continue_on_timeout: true
+
+          - alias: "Additional safety delay"
+            delay: "00:00:03"
 
           - alias: "Restore previous volume (if known)"
             if:
