@@ -1,10 +1,11 @@
 blueprint:
   name: Mashov – Bag Reminder (Speak Tomorrow's Subjects)
   description: >
-    Version v1.0.29. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
+    Version v1.0.30. Reads tomorrow's subjects (with teacher names and optional plan) aloud at 18:00,
     only if tomorrow is a school day (not Saturday and not a holiday) and only if
     there is data for tomorrow. Raises speaker volume, speaks, then restores it.
     Includes detailed trace/logbook of "why ran / why skipped" and prints holiday name when skipping.
+    Added option to include/exclude weekly plan in announcement and fixed TTS completion timing.
   domain: automation
   source_url: https://raw.githubusercontent.com/NirBY/ha-mashov/main/blueprints/automation/mashov/bag_reminder_tomorrow.yaml
   input:
@@ -64,11 +65,16 @@ blueprint:
       description: For Google Translate Hebrew use **iw** (default). For cloud_say use **he-IL**.
       default: iw
       selector: { text: {} }
+    include_weekly_plan:
+      name: Include weekly plan in announcement
+      description: If enabled, will read the lesson plan (תוכנית השיעור) for each subject. If disabled, will only read subject names.
+      default: true
+      selector: { boolean: {} }
 
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "bag_reminder_tomorrow v1.0.29 (2025-10-14)"
+      default: "bag_reminder_tomorrow v1.0.30 (2025-10-15)"
       selector: { text: {} }
 
 mode: single
@@ -93,6 +99,7 @@ variables:
   use_previous_volume: !input use_previous_volume
   tts_service_type: !input tts_service_type
   language_code: !input language_code
+  include_weekly_plan: !input include_weekly_plan
 
   # Normalize language for Google Translate: map deprecated "iw" -> "he"
   lang_effective: >-
@@ -240,7 +247,7 @@ variables:
     {% set base_lessons = tomorrow_lessons | sort(attribute='lesson') %}
     {% set plans = state_attr(weekly_plan_entity, 'Items') or state_attr(weekly_plan_entity, 'items') or [] %}
     {% set plans_today = [] %}
-    {% if weekly_plan_entity and plans %}
+    {% if include_weekly_plan and weekly_plan_entity and plans %}
       {% set plans_today = plans
           | selectattr('lesson_date','defined')
           | selectattr('plan','defined')
@@ -258,14 +265,16 @@ variables:
           {% set ns.seen = ns.seen + [subj] %}
           {% set gid = les['groupId'] if 'groupId' in les else none %}
           {% set ns_inner = namespace(plan_text='') %}
-          {% for p in plans_today %}
-            {% set p_gid = (p.group_id if 'group_id' in p else (p.groupId if 'groupId' in p else none)) %}
-            {% set p_plan = (p.plan if 'plan' in p else '') %}
-            {% if p_gid == gid and p_plan %}
-              {% set ns_inner.plan_text = p_plan | trim %}
-            {% endif %}
-          {% endfor %}
-          {% set full = 'שיעור ' ~ lesson_num ~ ': ' ~ subj ~ ('. תוכנית: ' ~ ns_inner.plan_text if ns_inner.plan_text else '') %}
+          {% if include_weekly_plan %}
+            {% for p in plans_today %}
+              {% set p_gid = (p.group_id if 'group_id' in p else (p.groupId if 'groupId' in p else none)) %}
+              {% set p_plan = (p.plan if 'plan' in p else '') %}
+              {% if p_gid == gid and p_plan %}
+                {% set ns_inner.plan_text = p_plan | trim %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% set full = 'שיעור ' ~ lesson_num ~ ': ' ~ subj ~ (('. תוכנית: ' ~ ns_inner.plan_text) if ns_inner.plan_text else '') %}
           {% set ns.parts = ns.parts + [full] %}
         {% endif %}
       {% endfor %}
@@ -299,6 +308,7 @@ variables:
       else (google_lang_effective if tts_service_type == 'google_translate' else lang_effective)
     ) %}
     {% set reasons = reasons + ['tts_lang=' ~ tts_lang] %}
+    {% set reasons = reasons + ['include_weekly_plan=' ~ (include_weekly_plan | string)] %}
     {% set items = state_attr(timetable_entity, 'Items') or state_attr(timetable_entity, 'items') or [] %}
     {% set days = items
       | selectattr('timeTable','defined')
@@ -435,6 +445,9 @@ action:
                       {{ s not in ['playing','buffering'] }}
                     timeout: "00:05:00"
                     continue_on_timeout: true
+
+                  # Additional safety delay to ensure TTS fully completed
+                  - delay: "00:00:03"
 
                   # Restore volume (previous if available, else fallback)
                   - choose:
