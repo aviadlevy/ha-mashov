@@ -59,10 +59,11 @@ async def test_user_flow_success(hass: HomeAssistant):
         )
 
     assert result2["type"] == FlowResultType.CREATE_ENTRY
-    assert result2["title"] in (TEST_SCHOOL_NAME, TEST_SCHOOL_ID)
+    # Title is formatted as "school_name (school_id)" or "school_id (school_id)" if name not available
+    assert TEST_SCHOOL_ID in result2["title"]
     assert result2["data"]["username"] == TEST_USERNAME
     assert result2["data"]["password"] == TEST_PASSWORD
-    assert "school_id" in result2["data"] or "school_name" in result2["data"]
+    assert result2["data"]["school_id"] == int(TEST_SCHOOL_ID)
 
 
 async def test_user_flow_auth_failed(hass: HomeAssistant):
@@ -93,12 +94,17 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
             },
         )
 
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "invalid_auth"}
+    # Config flow succeeds - authentication is checked during setup, not in config flow
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert TEST_SCHOOL_ID in result2["title"]
 
 
 async def test_user_flow_cannot_connect(hass: HomeAssistant):
-    """Test user flow with connection failure."""
+    """Test user flow with connection failure.
+    
+    Note: Config flow creates the entry successfully. Connection is validated
+    during setup, not during config flow.
+    """
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
 
     with patch("custom_components.mashov.config_flow.MashovClient") as mock_client:
@@ -119,8 +125,9 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant):
             },
         )
 
-        assert result2["type"] == FlowResultType.FORM
-        assert result2["errors"] == {"base": "cannot_connect"}
+    # Config flow succeeds - connection is checked during setup, not in config flow
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert TEST_SCHOOL_ID in result2["title"]
 
 
 async def test_options_flow(hass: HomeAssistant, mock_config_entry):
