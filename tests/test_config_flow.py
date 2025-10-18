@@ -13,11 +13,7 @@ from .const import TEST_PASSWORD, TEST_SCHOOL_ID, TEST_STUDENT, TEST_USERNAME
 
 async def test_user_flow_success(hass: HomeAssistant):
     """Test successful user flow."""
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "user"
-
-    # Prevent actual setup from running - we only test the config flow
+    # Prevent actual setup and network calls - patch BEFORE async_init
     with (
         patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
         patch("custom_components.mashov.async_setup", return_value=True),
@@ -54,6 +50,10 @@ async def test_user_flow_success(hass: HomeAssistant):
         )
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
 
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "user"
+
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -63,19 +63,17 @@ async def test_user_flow_success(hass: HomeAssistant):
             },
         )
 
-    assert result2["type"] == FlowResultType.CREATE_ENTRY
-    # Title is formatted as "school_name (school_id)" or "school_id (school_id)" if name not available
-    assert TEST_SCHOOL_ID in result2["title"]
-    assert result2["data"]["username"] == TEST_USERNAME
-    assert result2["data"]["password"] == TEST_PASSWORD
-    assert result2["data"]["school_id"] == int(TEST_SCHOOL_ID)
+        assert result2["type"] == FlowResultType.CREATE_ENTRY
+        # Title is formatted as "school_name (school_id)" or "school_id (school_id)" if name not available
+        assert TEST_SCHOOL_ID in result2["title"]
+        assert result2["data"]["username"] == TEST_USERNAME
+        assert result2["data"]["password"] == TEST_PASSWORD
+        assert result2["data"]["school_id"] == int(TEST_SCHOOL_ID)
 
 
 async def test_user_flow_auth_failed(hass: HomeAssistant):
     """Test user flow with authentication failure."""
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-
-    # Prevent actual setup from running - we only test the config flow
+    # Prevent actual setup and network calls - patch BEFORE async_init
     with (
         patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
         patch("custom_components.mashov.async_setup", return_value=True),
@@ -95,6 +93,8 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
             }
         )
 
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -104,9 +104,9 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
             },
         )
 
-    # Config flow succeeds - authentication is checked during setup, not in config flow
-    assert result2["type"] == FlowResultType.CREATE_ENTRY
-    assert TEST_SCHOOL_ID in result2["title"]
+        # Config flow succeeds - authentication is checked during setup, not in config flow
+        assert result2["type"] == FlowResultType.CREATE_ENTRY
+        assert TEST_SCHOOL_ID in result2["title"]
 
 
 async def test_user_flow_cannot_connect(hass: HomeAssistant):
@@ -115,9 +115,7 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant):
     Note: Config flow creates the entry successfully. Connection is validated
     during setup, not during config flow.
     """
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-
-    # Prevent actual setup from running - we only test the config flow
+    # Prevent actual setup and network calls - patch BEFORE async_init
     with (
         patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
         patch("custom_components.mashov.async_setup", return_value=True),
@@ -131,6 +129,8 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant):
         client.async_authenticate = AsyncMock(side_effect=Exception("Connection error"))
         client.async_fetch_all = AsyncMock(side_effect=Exception("Connection error"))
 
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -140,9 +140,9 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant):
             },
         )
 
-    # Config flow succeeds - connection is checked during setup, not in config flow
-    assert result2["type"] == FlowResultType.CREATE_ENTRY
-    assert TEST_SCHOOL_ID in result2["title"]
+        # Config flow succeeds - connection is checked during setup, not in config flow
+        assert result2["type"] == FlowResultType.CREATE_ENTRY
+        assert TEST_SCHOOL_ID in result2["title"]
 
 
 async def test_options_flow(hass: HomeAssistant, mock_config_entry):

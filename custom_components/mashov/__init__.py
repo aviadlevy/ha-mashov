@@ -320,6 +320,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     _LOGGER.info("Unloading Mashov integration: %s", entry.title)
+    # Check if DOMAIN exists in hass.data (it won't if setup failed or was mocked)
+    if DOMAIN not in hass.data:
+        return True
     data = hass.data[DOMAIN].pop(entry.entry_id, None)
     if data:
         if data.get("unsub_daily"):
