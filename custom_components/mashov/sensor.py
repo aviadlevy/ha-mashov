@@ -270,7 +270,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
                 try:
                     date_obj = datetime.fromisoformat(date_str.replace("T00:00:00", ""))
                     formatted_date = date_obj.strftime("%d/%m/%Y")
-                except:
+                except Exception:
                     formatted_date = date_str
             else:
                 formatted_date = "תאריך לא ידוע"
@@ -324,7 +324,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
                 try:
                     date_obj = datetime.fromisoformat(date_str.replace("T00:00:00", ""))
                     formatted_date = date_obj.strftime("%d/%m/%Y")
-                except:
+                except Exception:
                     formatted_date = date_str
             else:
                 formatted_date = "תאריך לא ידוע"
@@ -430,10 +430,12 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
 
         if uses_sunday_based:
             headers = headers_sun
-            to_col = lambda d: max(0, min(6, int(d) - 1))  # 1->0 ... 7->6
+            def to_col(d):
+                return max(0, min(6, int(d) - 1))  # 1->0 ... 7->6
         else:
             headers = headers_mon
-            to_col = lambda d: max(0, min(6, (int(d) + 6) % 7))  # 0(Mon)->6? We want order Mon..Sun mapped to 0..6 index of headers_mon
+            def to_col(d):
+                return max(0, min(6, (int(d) + 6) % 7))  # 0(Mon)->6? We want order Mon..Sun mapped to 0..6 index of headers_mon
             # Explanation: headers_mon starts at Monday, but rendered order is Mon..Sun; mapping (d) to index accordingly
 
         # Determine max lessons
@@ -463,7 +465,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             '<thead><tr>' + ''.join(f'<th style="border:1px solid var(--divider-color); padding:4px; background:var(--table-header-background-color, var(--primary-color)) ; color: var(--text-primary-color, #fff);">{h}</th>' for h in headers) + '</tr></thead>',
             '<tbody>'
         ]
-        for i, row in enumerate(table_rows, start=1):
+        for _i, row in enumerate(table_rows, start=1):
             html.append('<tr>')
             for cell in row:
                 cell_html = cell.replace('\n', '<br/>') if cell else ''
@@ -494,9 +496,8 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
     def _format_timetable_data(self, items: list) -> dict[str, Any]:
         """Format timetable using the same renderer as weekly plan."""
         # Reuse weekly plan formatting which supports timeTable/groupDetails
-        data = self._format_weekly_plan_data(items)
+        return self._format_weekly_plan_data(items)
         # Keep summary as-is or optionally tweak text; leaving as-is for consistency
-        return data
 
     def _format_lessons_history(self, items: list) -> dict[str, Any]:
         from datetime import datetime

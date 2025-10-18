@@ -15,6 +15,8 @@ import voluptuous as vol  # type: ignore[import-not-found]
 
 _LOGGER = logging.getLogger(__name__)
 
+import contextlib
+
 from .const import (
     CONF_API_BASE,
     CONF_HOMEWORK_DAYS_BACK,
@@ -59,8 +61,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         try:
             await tmp.async_open_session()
-            catalog = await tmp.async_fetch_schools_catalog(None)
-            return catalog
+            return await tmp.async_fetch_schools_catalog(None)
         finally:
             await tmp.async_close()
 
@@ -265,10 +266,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     raw_days = normalized.get(CONF_SCHEDULE_DAYS) or []
                     casted = []
                     for v in raw_days:
-                        try:
+                        with contextlib.suppress(Exception):
                             casted.append(max(0, min(6, int(v))))
-                        except Exception:
-                            pass
                     if casted:
                         normalized[CONF_SCHEDULE_DAYS] = sorted(set(casted))
                 # If missing multi-days but legacy exists, promote

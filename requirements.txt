@@ -13,9 +13,6 @@ ruff>=0.1.0
 # Type checking
 mypy>=1.7.0
 
-# Home Assistant
-homeassistant>=2025.1.0
-
 # Integration dependencies
 voluptuous>=0.13.1
 aiohttp>=3.9.0

@@ -10,8 +10,7 @@ from .const import CONF_PASSWORD, CONF_USERNAME, DOMAIN
 TO_REDACT = {CONF_PASSWORD, CONF_USERNAME}
 
 async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigEntry):
-    data = {
+    return {
         "entry": async_redact_data(entry.as_dict(), TO_REDACT),
         "coordinator_data": async_redact_data(hass.data[DOMAIN][entry.entry_id]["coordinator"].data, set()),
     }
-    return data

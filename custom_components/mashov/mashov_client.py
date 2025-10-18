@@ -255,7 +255,6 @@ class MashovClient:
             "User-Agent": "Mozilla/5.0 (HomeAssistant) Mashov/0.5",
         }
         # Try login with retry mechanism
-        last_error = None
         for attempt in range(max_retries):
             _LOGGER.info("=== LOGIN ATTEMPT %d/%d ===", attempt + 1, max_retries)
             _LOGGER.info("Login attempt %d/%d (semel=%s, year=%s, user=%s)",
@@ -336,22 +335,20 @@ class MashovClient:
                         continue
                     raise MashovError("No authentication data received after multiple attempts")
 
-            except TimeoutError as e:
-                last_error = e
+            except TimeoutError:
                 _LOGGER.warning("Login timeout on attempt %d/%d", attempt + 1, max_retries)
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                     continue
                 _LOGGER.error("Login timeout - Mashov server is not responding")
-                raise MashovError("Login timeout - Mashov server is not responding")
+                raise MashovError("Login timeout - Mashov server is not responding") from None
             except aiohttp.ClientError as e:
-                last_error = e
                 _LOGGER.warning("Network error on attempt %d/%d: %s", attempt + 1, max_retries, e)
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                     continue
                 _LOGGER.error("Network error during login: %s", e)
-                raise MashovError(f"Network error during login: {e}")
+                raise MashovError(f"Network error during login: {e}") from e
 
         # Extract students from authentication response
         _LOGGER.info("=== EXTRACTING STUDENTS FROM AUTH RESPONSE ===")
@@ -419,7 +416,7 @@ class MashovClient:
         today = date.today()
         from_dt = (today - timedelta(days=self.homework_days_back)).isoformat()
         to_dt = (today + timedelta(days=self.homework_days_forward)).isoformat()
-        day_str = today.isoformat()
+        today.isoformat()
 
         _LOGGER.info("Fetching data for %d students from %s to %s",
                      len(self._students), from_dt, to_dt)

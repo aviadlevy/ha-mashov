@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from datetime import datetime, timedelta
 import logging
 import time
@@ -64,7 +65,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     yaml_conf = config.get(DOMAIN) or {}
     hass.data[DOMAIN]["yaml_options"] = yaml_conf
     if yaml_conf:
-        _LOGGER.info("Loaded YAML options for Mashov: %s", {k: yaml_conf.get(k) for k in yaml_conf.keys()})
+        _LOGGER.info("Loaded YAML options for Mashov: %s", {k: yaml_conf.get(k) for k in yaml_conf})
     else:
         _LOGGER.debug("No YAML options provided for Mashov")
     return True
@@ -180,10 +181,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         if CONF_SCHEDULE_DAYS in merged_opts and isinstance(merged_opts.get(CONF_SCHEDULE_DAYS), list):
             casted = []
             for v in merged_opts.get(CONF_SCHEDULE_DAYS) or []:
-                try:
+                with contextlib.suppress(Exception):
                     casted.append(max(0, min(6, int(v))))
-                except Exception:
-                    pass
             if casted:
                 merged_opts[CONF_SCHEDULE_DAYS] = sorted(set(casted))
                 migrated = True
@@ -286,7 +285,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 CONF_SCHEDULE_DAYS,
                 CONF_SCHEDULE_INTERVAL,
             }
-            for k, v in list(payload.items()):
+            for k, _v in list(payload.items()):
                 if k not in known_keys:
                     payload.pop(k, None)
             opts.update(payload)
@@ -320,14 +319,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 def async_get_options_flow(config_entry: ConfigEntry):
-    try:
+    with contextlib.suppress(Exception):
         _LOGGER.debug(
             "async_get_options_flow requested (entry_id=%s, title='%s')",
             getattr(config_entry, "entry_id", ""),
             getattr(config_entry, "title", ""),
         )
-    except Exception:
-        pass
     from .config_flow import OptionsFlowHandler
     return OptionsFlowHandler(config_entry)
 

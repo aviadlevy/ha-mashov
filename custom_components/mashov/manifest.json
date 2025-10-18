@@ -1,20 +1,20 @@
 {
   "domain": "mashov",
   "name": "Mashov",
-  "version": "1.0.0",
-  "documentation": "https://github.com/NirBY/ha-mashov",
-  "issue_tracker": "https://github.com/NirBY/ha-mashov/issues",
-  "dependencies": [],
   "codeowners": [
     "@nirby"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/NirBY/ha-mashov",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/NirBY/ha-mashov/issues",
+  "loggers": [
+    "custom_components.mashov"
   ],
   "requirements": [
     "voluptuous"
   ],
-  "config_flow": true,
-  "iot_class": "cloud_polling",
-  "loggers": [
-    "custom_components.mashov"
-  ],
-  "integration_type": "hub"
+  "version": "1.0.0"
 }

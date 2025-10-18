@@ -19,6 +19,7 @@ select = [
 
 ignore = [
     "E501",  # line too long (handled by formatter)
+    "E402",  # module level import not at top of file (intentional for logger setup)
 ]
 
 [lint.per-file-ignores]
