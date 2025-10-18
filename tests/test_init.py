@@ -22,6 +22,29 @@ async def test_setup_entry(hass: HomeAssistant, mock_config_entry: MockConfigEnt
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": "student-123",
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": [],
+                        "lessons_history": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
@@ -41,6 +64,13 @@ async def test_setup_entry_auth_failed(hass: HomeAssistant, mock_config_entry: M
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=False)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [],
+                "by_slug": {},
+                "holidays": [],
+            }
+        )
 
         assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -59,6 +89,29 @@ async def test_unload_entry(hass: HomeAssistant, mock_config_entry: MockConfigEn
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": "student-123",
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": [],
+                        "lessons_history": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
@@ -81,6 +134,29 @@ async def test_refresh_service(hass: HomeAssistant, mock_config_entry: MockConfi
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": "student-123",
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": [],
+                        "lessons_history": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)

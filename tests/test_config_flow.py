@@ -24,6 +24,29 @@ async def test_user_flow_success(hass: HomeAssistant):
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": "student-123",
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": [],
+                        "lessons_history": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
 
         result2 = await hass.config_entries.flow.async_configure(
@@ -53,6 +76,13 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=False)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [],
+                "by_slug": {},
+                "holidays": [],
+            }
+        )
 
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -78,6 +108,7 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant):
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(side_effect=Exception("Connection error"))
+        client.async_fetch_all = AsyncMock(side_effect=Exception("Connection error"))
 
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],

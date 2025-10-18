@@ -43,6 +43,29 @@ def mock_mashov_client_fixture():
         client.async_open_session = AsyncMock(return_value=None)
         client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": "student-123",
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": [],
+                        "lessons_history": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
         client.async_get_students = AsyncMock(
             return_value=[
                 {
