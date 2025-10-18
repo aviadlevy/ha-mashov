@@ -1,4 +1,5 @@
 """Test Mashov sensors."""
+
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.core import HomeAssistant
@@ -19,6 +20,10 @@ async def test_homework_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
         client.async_get_homework = AsyncMock(return_value=TEST_HOMEWORK)
@@ -26,7 +31,6 @@ async def test_homework_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
         client.async_get_timetable = AsyncMock(return_value=[])
         client.async_get_weekly_plan = AsyncMock(return_value=[])
         client.async_get_holidays = AsyncMock(return_value=[])
-        client.async_open_session = AsyncMock()
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -46,6 +50,10 @@ async def test_behavior_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
         client.async_get_homework = AsyncMock(return_value=[])
@@ -53,7 +61,6 @@ async def test_behavior_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
         client.async_get_timetable = AsyncMock(return_value=[])
         client.async_get_weekly_plan = AsyncMock(return_value=[])
         client.async_get_holidays = AsyncMock(return_value=[])
-        client.async_open_session = AsyncMock()
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -72,6 +79,10 @@ async def test_timetable_sensor(hass: HomeAssistant, mock_config_entry: MockConf
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
         client.async_get_homework = AsyncMock(return_value=[])
@@ -79,7 +90,6 @@ async def test_timetable_sensor(hass: HomeAssistant, mock_config_entry: MockConf
         client.async_get_timetable = AsyncMock(return_value=TEST_TIMETABLE)
         client.async_get_weekly_plan = AsyncMock(return_value=[])
         client.async_get_holidays = AsyncMock(return_value=[])
-        client.async_open_session = AsyncMock()
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -97,6 +107,10 @@ async def test_holidays_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
         client.async_get_homework = AsyncMock(return_value=[])
@@ -104,7 +118,6 @@ async def test_holidays_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
         client.async_get_timetable = AsyncMock(return_value=[])
         client.async_get_weekly_plan = AsyncMock(return_value=[])
         client.async_get_holidays = AsyncMock(return_value=TEST_HOLIDAYS)
-        client.async_open_session = AsyncMock()
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -115,4 +128,3 @@ async def test_holidays_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
     assert state is not None
     assert state.state == str(len(TEST_HOLIDAYS))
     assert state.attributes.get("Items") == TEST_HOLIDAYS
-

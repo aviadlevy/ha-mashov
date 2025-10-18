@@ -1,4 +1,5 @@
 """Global fixtures for Mashov integration tests."""
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -37,6 +38,10 @@ def mock_mashov_client_fixture():
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(
             return_value=[
@@ -53,6 +58,4 @@ def mock_mashov_client_fixture():
         client.async_get_timetable = AsyncMock(return_value=[])
         client.async_get_weekly_plan = AsyncMock(return_value=[])
         client.async_get_holidays = AsyncMock(return_value=[])
-        client.async_close_session = AsyncMock()
         yield client
-

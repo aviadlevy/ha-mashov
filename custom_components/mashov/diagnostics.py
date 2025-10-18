@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -8,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from .const import CONF_PASSWORD, CONF_USERNAME, DOMAIN
 
 TO_REDACT = {CONF_PASSWORD, CONF_USERNAME}
+
 
 async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigEntry):
     return {

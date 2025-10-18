@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import logging
@@ -76,12 +75,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if catalog and len(catalog) > 0:
                     # Sort by name for better autocomplete - handle None values
-                    sorted_catalog = sorted(catalog, key=lambda x: (x.get('name') or '').lower())
+                    sorted_catalog = sorted(catalog, key=lambda x: (x.get("name") or "").lower())
                     self._catalog_options = []
                     for it in sorted_catalog:
                         if it.get("semel") and it.get("name"):
-                            name = it.get('name','?')
-                            semel = int(it['semel'])
+                            name = it.get("name", "?")
+                            semel = int(it["semel"])
                             # Do not separate city; show the exact name
                             label = f"{name} ({semel})"
                             self._catalog_options.append({"value": semel, "label": label})
@@ -97,22 +96,25 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.debug("Created %d autocomplete options", len(self._catalog_options))
 
             # Create simple autocomplete list
-            autocomplete_list = [opt['label'] for opt in self._catalog_options]
+            autocomplete_list = [opt["label"] for opt in self._catalog_options]
 
-            schema = vol.Schema({
-                vol.Required(CONF_USERNAME): str,
-                vol.Required(CONF_PASSWORD): str,
-                vol.Required(CONF_SCHOOL_NAME, description={
-                    "suggested_value": "",
-                    "autocomplete": autocomplete_list
-                }): str,
-            })
+            schema = vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME): str,
+                    vol.Required(CONF_PASSWORD): str,
+                    vol.Required(
+                        CONF_SCHOOL_NAME, description={"suggested_value": "", "autocomplete": autocomplete_list}
+                    ): str,
+                }
+            )
         else:
-            schema = vol.Schema({
-                vol.Required(CONF_USERNAME): str,
-                vol.Required(CONF_PASSWORD): str,
-                vol.Required(CONF_SCHOOL_NAME, description={"suggested_value": ""}): str,  # name or semel
-            })
+            schema = vol.Schema(
+                {
+                    vol.Required(CONF_USERNAME): str,
+                    vol.Required(CONF_PASSWORD): str,
+                    vol.Required(CONF_SCHOOL_NAME, description={"suggested_value": ""}): str,  # name or semel
+                }
+            )
 
         if user_input is not None:
             # Determine school id from autocomplete or manual input
@@ -126,7 +128,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 # Try to extract semel from autocomplete format: "School Name – City (123456)"
                 import re
-                semel_match = re.search(r'\((\d+)\)$', school_raw)
+
+                semel_match = re.search(r"\((\d+)\)$", school_raw)
                 if semel_match:
                     user_input[CONF_SCHOOL_ID] = int(semel_match.group(1))
                     _LOGGER.debug("Extracted semel from autocomplete: %s", user_input[CONF_SCHOOL_ID])
@@ -153,12 +156,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             # Create choices with school name and semel
                             self._school_choices = {}
                             for r in results:
-                                name = r.get('name', 'Unknown School')
-                                semel = r.get('semel')
+                                name = r.get("name", "Unknown School")
+                                semel = r.get("semel")
                                 if semel:
                                     label = f"{name} ({semel})"
                                     self._school_choices[label] = int(semel)
-                            _LOGGER.debug("Created %d school choices: %s", len(self._school_choices), list(self._school_choices.keys()))
+                            _LOGGER.debug(
+                                "Created %d school choices: %s",
+                                len(self._school_choices),
+                                list(self._school_choices.keys()),
+                            )
                             return await self.async_step_pick_school()
 
                         user_input[CONF_SCHOOL_ID] = int(results[0]["semel"])
@@ -222,15 +229,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Convert choices to SelectSelector format - values must be strings
         options = [{"value": str(semel), "label": label} for label, semel in self._school_choices.items()]
 
-        schema = vol.Schema({
-            vol.Required("selected_school"): SelectSelector(
-                SelectSelectorConfig(
-                    options=options,
-                    mode=SelectSelectorMode.DROPDOWN,
-                    multiple=False,
+        schema = vol.Schema(
+            {
+                vol.Required("selected_school"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        multiple=False,
+                    )
                 )
-            )
-        })
+            }
+        )
         return self.async_show_form(step_id="pick_school", data_schema=schema, errors=errors)
 
     # Ensure HA can discover options flow via the ConfigFlow class (for cores that expect it)
@@ -238,6 +247,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry):
         return OptionsFlowHandler(config_entry)
+
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry):
@@ -283,10 +293,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             except Exception as e:
                 _LOGGER.debug("Options normalization failed: %s", e)
 
-            _LOGGER.info("Options submitted for '%s' (id=%s): %s",
-                        getattr(self.config_entry, "title", ""),
-                        getattr(self.config_entry, "entry_id", ""),
-                        normalized)
+            _LOGGER.info(
+                "Options submitted for '%s' (id=%s): %s",
+                getattr(self.config_entry, "title", ""),
+                getattr(self.config_entry, "entry_id", ""),
+                normalized,
+            )
             return self.async_create_entry(title="", data=normalized)
 
         current_options = dict(self.config_entry.options or {})
@@ -294,7 +306,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         options = {
             CONF_HOMEWORK_DAYS_BACK: self.config_entry.options.get(CONF_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_BACK),
-            CONF_HOMEWORK_DAYS_FORWARD: self.config_entry.options.get(CONF_HOMEWORK_DAYS_FORWARD, DEFAULT_HOMEWORK_DAYS_FORWARD),
+            CONF_HOMEWORK_DAYS_FORWARD: self.config_entry.options.get(
+                CONF_HOMEWORK_DAYS_FORWARD, DEFAULT_HOMEWORK_DAYS_FORWARD
+            ),
             CONF_API_BASE: self.config_entry.options.get(CONF_API_BASE, DEFAULT_API_BASE),
             CONF_SCHEDULE_TYPE: self.config_entry.options.get(CONF_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TYPE),
             CONF_SCHEDULE_TIME: self.config_entry.options.get(CONF_SCHEDULE_TIME, DEFAULT_SCHEDULE_TIME),
@@ -303,32 +317,46 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             CONF_SCHEDULE_INTERVAL: self.config_entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
         }
         _LOGGER.debug("Options defaults resolved: %s", options)
-        schema = vol.Schema({
-            vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(int, vol.Range(min=0, max=60)),
-            vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(int, vol.Range(min=1, max=120)),
-            vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
-            vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): vol.In(["daily", "weekly", "interval"]),
-            vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
-            # Hide legacy single-day field by not including it in the schema
-            # Multi days selector via HA SelectSelector (multiple)
-            vol.Optional(CONF_SCHEDULE_DAYS, default=[str(d) for d in options[CONF_SCHEDULE_DAYS]]): SelectSelector(
-                SelectSelectorConfig(
-                    options=[
-                        {"value": "0", "label": "Monday"},
-                        {"value": "1", "label": "Tuesday"},
-                        {"value": "2", "label": "Wednesday"},
-                        {"value": "3", "label": "Thursday"},
-                        {"value": "4", "label": "Friday"},
-                        {"value": "5", "label": "Saturday"},
-                        {"value": "6", "label": "Sunday"},
-                    ],
-                    mode=SelectSelectorMode.DROPDOWN,
-                    multiple=True,
-                )
-            ),
-            vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(int, vol.Range(min=5, max=1440)),
-        })
-        _LOGGER.debug("Options schema built for entry '%s' (id=%s)", getattr(self.config_entry, "title", ""), getattr(self.config_entry, "entry_id", ""))
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_HOMEWORK_DAYS_BACK, default=options[CONF_HOMEWORK_DAYS_BACK]): vol.All(
+                    int, vol.Range(min=0, max=60)
+                ),
+                vol.Optional(CONF_HOMEWORK_DAYS_FORWARD, default=options[CONF_HOMEWORK_DAYS_FORWARD]): vol.All(
+                    int, vol.Range(min=1, max=120)
+                ),
+                vol.Optional(CONF_API_BASE, default=options[CONF_API_BASE]): str,
+                vol.Optional(CONF_SCHEDULE_TYPE, default=options[CONF_SCHEDULE_TYPE]): vol.In(
+                    ["daily", "weekly", "interval"]
+                ),
+                vol.Optional(CONF_SCHEDULE_TIME, default=options[CONF_SCHEDULE_TIME]): str,
+                # Hide legacy single-day field by not including it in the schema
+                # Multi days selector via HA SelectSelector (multiple)
+                vol.Optional(CONF_SCHEDULE_DAYS, default=[str(d) for d in options[CONF_SCHEDULE_DAYS]]): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": "0", "label": "Monday"},
+                            {"value": "1", "label": "Tuesday"},
+                            {"value": "2", "label": "Wednesday"},
+                            {"value": "3", "label": "Thursday"},
+                            {"value": "4", "label": "Friday"},
+                            {"value": "5", "label": "Saturday"},
+                            {"value": "6", "label": "Sunday"},
+                        ],
+                        mode=SelectSelectorMode.DROPDOWN,
+                        multiple=True,
+                    )
+                ),
+                vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(
+                    int, vol.Range(min=5, max=1440)
+                ),
+            }
+        )
+        _LOGGER.debug(
+            "Options schema built for entry '%s' (id=%s)",
+            getattr(self.config_entry, "title", ""),
+            getattr(self.config_entry, "entry_id", ""),
+        )
         return self.async_show_form(step_id="init", data_schema=schema)
 
 

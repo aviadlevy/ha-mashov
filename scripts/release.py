@@ -16,10 +16,12 @@ def get_current_version():
     with open("VERSION") as f:
         return f.read().strip()
 
+
 def update_version_file(new_version):
     """Update VERSION file"""
     with open("VERSION", "w") as f:
         f.write(new_version)
+
 
 def update_manifest_version(new_version):
     """Update version in manifest.json"""
@@ -31,6 +33,7 @@ def update_manifest_version(new_version):
 
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
+
 
 def update_changelog(new_version, is_prerelease=False):
     """Update CHANGELOG.md with new version"""
@@ -75,6 +78,7 @@ def update_changelog(new_version, is_prerelease=False):
     with open(changelog_path, "w") as f:
         f.write(new_content)
 
+
 def create_git_tag(version, is_prerelease=False):
     """Create git tag and push to remote"""
     tag_name = f"v{version}"
@@ -90,10 +94,13 @@ def create_git_tag(version, is_prerelease=False):
     if is_prerelease:
         print("🔶 This is a pre-release version")
         print("💡 To create a GitHub release, run:")
-        print(f"   gh release create {tag_name} --prerelease --title 'Release {tag_name}' --notes 'See CHANGELOG.md for details'")
+        print(
+            f"   gh release create {tag_name} --prerelease --title 'Release {tag_name}' --notes 'See CHANGELOG.md for details'"
+        )
     else:
         print("💡 To create a GitHub release, run:")
         print(f"   gh release create {tag_name} --title 'Release {tag_name}' --notes 'See CHANGELOG.md for details'")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Release script for ha-mashov")
@@ -122,6 +129,7 @@ def main():
     create_git_tag(new_version, args.pre_release)
 
     print(f"🎉 Successfully released version {new_version}")
+
 
 if __name__ == "__main__":
     main()

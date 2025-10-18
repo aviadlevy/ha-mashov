@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import asyncio
@@ -16,34 +15,41 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def _trace(msg: str, *args):
     # Use DEBUG for portability; can toggle in logger config
     _LOGGER.debug(msg, *args)
+
 
 API_BASE = "https://web.mashov.info/api/"  # default; can be overridden
 LOGIN_ENDPOINT = None
 ME_ENDPOINT = None
 ENDPOINTS: dict[str, str] = {}
 
+
 class MashovError(Exception):
     pass
 
+
 class MashovAuthError(MashovError):
     pass
+
 
 def _slugify(text: str) -> str:
     out = []
     for ch in text.lower():
         if ch.isalnum():
             out.append(ch)
-        elif ch in (' ', '-', '_'):
-            out.append('_')
-    s = ''.join(out).strip('_')
-    return s or 'student'
+        elif ch in (" ", "-", "_"):
+            out.append("_")
+    s = "".join(out).strip("_")
+    return s or "student"
+
 
 def _default_mashov_year(today: date | None = None) -> int:
     d = today or date.today()
     return d.year + 1 if d.month >= 9 else d.year
+
 
 class MashovClient:
     def __init__(
@@ -68,7 +74,7 @@ class MashovClient:
 
         self._session: aiohttp.ClientSession | None = None
         self._headers: dict[str, str] = {}
-        self._api_base = (api_base or API_BASE).rstrip('/') + '/'
+        self._api_base = (api_base or API_BASE).rstrip("/") + "/"
         self._resolve_endpoints()
 
         # store all students
@@ -78,13 +84,13 @@ class MashovClient:
     def _resolve_endpoints(self):
         global LOGIN_ENDPOINT, ME_ENDPOINT, ENDPOINTS
         LOGIN_ENDPOINT = self._api_base + "login"
-        ME_ENDPOINT    = self._api_base + "me"
+        ME_ENDPOINT = self._api_base + "me"
         ENDPOINTS = {
-            "homework":        self._api_base + "students/{student_id}/homework?from={start}&to={end}&year={year}",
-            "behavior":        self._api_base + "students/{student_id}/behave?from={start}&to={end}&year={year}",
-            "weekly_plan":     self._api_base + "students/{student_id}/lessons/plans",
-            "timetable":       self._api_base + "students/{student_id}/timetable",
-            "holidays":        self._api_base + "holidays",
+            "homework": self._api_base + "students/{student_id}/homework?from={start}&to={end}&year={year}",
+            "behavior": self._api_base + "students/{student_id}/behave?from={start}&to={end}&year={year}",
+            "weekly_plan": self._api_base + "students/{student_id}/lessons/plans",
+            "timetable": self._api_base + "students/{student_id}/timetable",
+            "holidays": self._api_base + "holidays",
             "lessons_history": self._api_base + "students/{student_id}/lessons/history",
         }
 
@@ -93,7 +99,7 @@ class MashovClient:
             _trace("Opening new Mashov client session")
             self._session = aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=60, connect=30),
-                connector=aiohttp.TCPConnector(limit=10, limit_per_host=5)
+                connector=aiohttp.TCPConnector(limit=10, limit_per_host=5),
             )
 
     async def async_close(self):
@@ -180,6 +186,7 @@ class MashovClient:
 
     def _normalize_schools_list(self, raw, query: str | None = None) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
+
         def add(semel, name, city=None):
             try:
                 semel = int(semel)
@@ -188,19 +195,24 @@ class MashovClient:
                     items.append({"semel": semel, "name": name, "city": city})
             except Exception:
                 pass
+
         if isinstance(raw, list):
             for x in raw:
-                add(x.get("semel") or x.get("id") or x.get("schoolCode"),
+                add(
+                    x.get("semel") or x.get("id") or x.get("schoolCode"),
                     x.get("name") or x.get("schoolName") or x.get("institutionName"),
-                    x.get("city") or x.get("cityName"))
+                    x.get("city") or x.get("cityName"),
+                )
         elif isinstance(raw, dict):
             for key in ("schools", "items", "results", "data"):
                 lst = raw.get(key)
                 if isinstance(lst, list):
                     for x in lst:
-                        add(x.get("semel") or x.get("id") or x.get("schoolCode"),
+                        add(
+                            x.get("semel") or x.get("id") or x.get("schoolCode"),
                             x.get("name") or x.get("schoolName") or x.get("institutionName"),
-                            x.get("city") or x.get("cityName"))
+                            x.get("city") or x.get("cityName"),
+                        )
         if query:
             ql = query.lower()
             items = [i for i in items if ql in (i["name"] or "").lower() or ql in (i["city"] or "").lower()]
@@ -211,8 +223,12 @@ class MashovClient:
 
     async def async_init(self, hass: HomeAssistant):
         _LOGGER.info("=== MASHOV CLIENT INIT START ===")
-        _LOGGER.info("Initializing Mashov client for school=%s, year=%s, user=%s",
-                     self.school_id or self.school_name, self.year, self.username)
+        _LOGGER.info(
+            "Initializing Mashov client for school=%s, year=%s, user=%s",
+            self.school_id or self.school_name,
+            self.year,
+            self.username,
+        )
         _LOGGER.info("API Base URL: %s", self._api_base)
         await self.async_open_session()
 
@@ -226,9 +242,9 @@ class MashovClient:
             if not matches:
                 _LOGGER.error("No schools found matching '%s'", self.school_name)
                 raise MashovError(f"No schools match '{self.school_name}'")
-            best = next((m for m in matches if m.get('name') == self.school_name), matches[0])
-            self.school_id = int(best.get('semel') or best.get('id'))
-            _LOGGER.info("Resolved school '%s' to semel %s", best.get('name'), self.school_id)
+            best = next((m for m in matches if m.get("name") == self.school_name), matches[0])
+            self.school_id = int(best.get("semel") or best.get("id"))
+            _LOGGER.info("Resolved school '%s' to semel %s", best.get("name"), self.school_id)
 
         # Login
         payload = {
@@ -257,8 +273,14 @@ class MashovClient:
         # Try login with retry mechanism
         for attempt in range(max_retries):
             _LOGGER.info("=== LOGIN ATTEMPT %d/%d ===", attempt + 1, max_retries)
-            _LOGGER.info("Login attempt %d/%d (semel=%s, year=%s, user=%s)",
-                         attempt + 1, max_retries, self.school_id, self.year, self.username)
+            _LOGGER.info(
+                "Login attempt %d/%d (semel=%s, year=%s, user=%s)",
+                attempt + 1,
+                max_retries,
+                self.school_id,
+                self.year,
+                self.username,
+            )
             _LOGGER.info("Login endpoint: %s", LOGIN_ENDPOINT)
             try:
                 async with self._session.post(LOGIN_ENDPOINT, json=payload, headers=headers) as resp:
@@ -267,9 +289,16 @@ class MashovClient:
 
                     if resp.status in (401, 403):
                         txt = await resp.text()
-                        _LOGGER.error("Authentication failed for school=%s, year=%s, user=%s. Response: %s",
-                                     self.school_id, self.year, self.username, txt)
-                        raise MashovAuthError("Authentication failed. Please check your credentials, school ID, and year.")
+                        _LOGGER.error(
+                            "Authentication failed for school=%s, year=%s, user=%s. Response: %s",
+                            self.school_id,
+                            self.year,
+                            self.username,
+                            txt,
+                        )
+                        raise MashovAuthError(
+                            "Authentication failed. Please check your credentials, school ID, and year."
+                        )
                     if resp.status >= 400:
                         txt = await resp.text()
                         _LOGGER.error("Login failed HTTP %s: %s", resp.status, txt)
@@ -282,7 +311,10 @@ class MashovClient:
                     # Try to parse response
                     try:
                         data = await resp.json(content_type=None)
-                        _LOGGER.info("Login response data keys: %s", list(data.keys()) if isinstance(data, dict) else "not a dict")
+                        _LOGGER.info(
+                            "Login response data keys: %s",
+                            list(data.keys()) if isinstance(data, dict) else "not a dict",
+                        )
                         _LOGGER.info("Login response data: %s", data)
                     except Exception as e:
                         _LOGGER.error("Failed to parse login response as JSON: %s", e)
@@ -295,7 +327,7 @@ class MashovClient:
                     self._headers = {"Accept": "application/json"}
 
                     # Extract CSRF token from response headers
-                    csrf_token = resp.headers.get('x-csrf-token') or resp.headers.get('X-Csrf-Token')
+                    csrf_token = resp.headers.get("x-csrf-token") or resp.headers.get("X-Csrf-Token")
                     if csrf_token:
                         _LOGGER.debug("Found CSRF token: %s", csrf_token)
                         self._headers["X-Csrf-Token"] = csrf_token
@@ -325,9 +357,11 @@ class MashovClient:
                         self._auth_data = data
                         break  # Success, exit retry loop
                     _LOGGER.error("=== AUTHENTICATION FAILED ===")
-                    _LOGGER.error("No authentication data received. Available data keys: %s, headers: %s",
-                                   list(data.keys()) if isinstance(data, dict) else "not a dict",
-                                   list(resp.headers.keys()))
+                    _LOGGER.error(
+                        "No authentication data received. Available data keys: %s, headers: %s",
+                        list(data.keys()) if isinstance(data, dict) else "not a dict",
+                        list(resp.headers.keys()),
+                    )
                     _LOGGER.error("Full response data: %s", data)
                     if attempt < max_retries - 1:
                         _LOGGER.info("Retrying login in %d seconds...", retry_delay)
@@ -383,15 +417,17 @@ class MashovClient:
 
             _LOGGER.info("Student %s has groups: %s", name, groups)
 
-            students.append({
-                "id": child_guid,  # Use childGuid directly as ID
-                "name": name,
-                "slug": _slugify(name) or f"student_{child_guid}",
-                "child_guid": child_guid,
-                "class_code": class_code,
-                "class_num": class_num,
-                "groups": groups
-            })
+            students.append(
+                {
+                    "id": child_guid,  # Use childGuid directly as ID
+                    "name": name,
+                    "slug": _slugify(name) or f"student_{child_guid}",
+                    "child_guid": child_guid,
+                    "class_code": class_code,
+                    "class_num": class_num,
+                    "groups": groups,
+                }
+            )
 
         self._students = students
         _LOGGER.info("=== STUDENTS PROCESSING COMPLETE ===")
@@ -418,19 +454,19 @@ class MashovClient:
         to_dt = (today + timedelta(days=self.homework_days_forward)).isoformat()
         today.isoformat()
 
-        _LOGGER.info("Fetching data for %d students from %s to %s",
-                     len(self._students), from_dt, to_dt)
+        _LOGGER.info("Fetching data for %d students from %s to %s", len(self._students), from_dt, to_dt)
 
         async def fetch_for_student(stu):
             sid = stu["id"]
 
             urls = {
-                "homework":        ENDPOINTS["homework"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
-                "behavior":        ENDPOINTS["behavior"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
-                "weekly_plan":     ENDPOINTS["weekly_plan"].format(student_id=sid),
-                "timetable":       ENDPOINTS["timetable"].format(student_id=sid),
+                "homework": ENDPOINTS["homework"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
+                "behavior": ENDPOINTS["behavior"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
+                "weekly_plan": ENDPOINTS["weekly_plan"].format(student_id=sid),
+                "timetable": ENDPOINTS["timetable"].format(student_id=sid),
                 "lessons_history": ENDPOINTS["lessons_history"].format(student_id=sid),
             }
+
             async def fetch(url_key: str):
                 url = urls[url_key]
                 _LOGGER.debug("Fetching %s for student %s from: %s", url_key, sid, url)
@@ -454,7 +490,12 @@ class MashovClient:
                             return []  # Return empty list for other errors instead of raising
                         try:
                             data = await resp.json()
-                            _LOGGER.debug("%s returned %d items for student %s", url_key, len(data) if isinstance(data, list) else 1, sid)
+                            _LOGGER.debug(
+                                "%s returned %d items for student %s",
+                                url_key,
+                                len(data) if isinstance(data, list) else 1,
+                                sid,
+                            )
                             return data
                         except Exception as e:
                             _LOGGER.debug("Failed to parse %s as JSON for student %s: %s", url_key, sid, e)
@@ -495,7 +536,7 @@ class MashovClient:
             holidays_raw = []
 
         holidays = self._normalize_holidays(holidays_raw)
-        by_slug = { self._students[i]["slug"]: results[i] for i in range(len(self._students)) }
+        by_slug = {self._students[i]["slug"]: results[i] for i in range(len(self._students))}
 
         result = {
             "students": [
@@ -505,7 +546,8 @@ class MashovClient:
                     "slug": s["slug"],
                     "year": self.year,
                     "school_id": self.school_id,
-                } for s in self._students
+                }
+                for s in self._students
             ],
             "by_slug": by_slug,
             "holidays": holidays,
@@ -519,12 +561,14 @@ class MashovClient:
         items = []
         try:
             for plan in raw or []:
-                items.append({
-                    "group_id": plan.get("groupid"),
-                    "lesson_date": plan.get("lessondate"),
-                    "lesson": plan.get("lesson"),
-                    "plan": plan.get("plan"),
-                })
+                items.append(
+                    {
+                        "group_id": plan.get("groupid"),
+                        "lesson_date": plan.get("lessondate"),
+                        "lesson": plan.get("lesson"),
+                        "plan": plan.get("plan"),
+                    }
+                )
         except Exception as e:
             _LOGGER.debug("normalize weekly plan failed: %s", e)
         return items
@@ -536,18 +580,22 @@ class MashovClient:
             if isinstance(raw, list):
                 for it in raw:
                     # Ensure keys exist with sane defaults
-                    items.append({
-                        "timeTable": (it or {}).get("timeTable") or {},
-                        "groupDetails": (it or {}).get("groupDetails") or {},
-                    })
+                    items.append(
+                        {
+                            "timeTable": (it or {}).get("timeTable") or {},
+                            "groupDetails": (it or {}).get("groupDetails") or {},
+                        }
+                    )
             elif isinstance(raw, dict):
                 # Some deployments may wrap data
                 data_list = raw.get("items") or raw.get("data") or []
                 for it in data_list:
-                    items.append({
-                        "timeTable": (it or {}).get("timeTable") or {},
-                        "groupDetails": (it or {}).get("groupDetails") or {},
-                    })
+                    items.append(
+                        {
+                            "timeTable": (it or {}).get("timeTable") or {},
+                            "groupDetails": (it or {}).get("groupDetails") or {},
+                        }
+                    )
         except Exception as e:
             _LOGGER.debug("normalize timetable failed: %s", e)
         return items
@@ -556,16 +604,18 @@ class MashovClient:
         items = []
         try:
             for hw in raw or []:
-                items.append({
-                    "lesson_id": hw.get("lessonId"),
-                    "lesson_date": hw.get("lessonDate"),
-                    "lesson": hw.get("lesson"),
-                    "homework": hw.get("homework"),
-                    "group_id": hw.get("groupId"),
-                    "remark": hw.get("remark"),
-                    "student_guid": hw.get("studentGuid"),
-                    "subject_name": hw.get("subjectName"),
-                })
+                items.append(
+                    {
+                        "lesson_id": hw.get("lessonId"),
+                        "lesson_date": hw.get("lessonDate"),
+                        "lesson": hw.get("lesson"),
+                        "homework": hw.get("homework"),
+                        "group_id": hw.get("groupId"),
+                        "remark": hw.get("remark"),
+                        "student_guid": hw.get("studentGuid"),
+                        "subject_name": hw.get("subjectName"),
+                    }
+                )
         except Exception as e:
             _LOGGER.debug("normalize homework failed: %s", e)
         return items
@@ -574,26 +624,28 @@ class MashovClient:
         items = []
         try:
             for ev in raw or []:
-                items.append({
-                    "student_guid": ev.get("studentGuid"),
-                    "event_code": ev.get("eventCode"),
-                    "justified": ev.get("justified"),
-                    "lesson_id": ev.get("lessonId"),
-                    "reporter_guid": ev.get("reporterGuid"),
-                    "timestamp": ev.get("timestamp"),
-                    "group_id": ev.get("groupId"),
-                    "lesson_type": ev.get("lessonType"),
-                    "lesson": ev.get("lesson"),
-                    "lesson_date": ev.get("lessonDate"),
-                    "lesson_reporter": ev.get("lessonReporter"),
-                    "achva_code": ev.get("achvaCode"),
-                    "achva_name": ev.get("achvaName"),
-                    "achva_aval": ev.get("achvaAval"),
-                    "justification_id": ev.get("justificationId"),
-                    "justification": ev.get("justification"),
-                    "reporter": ev.get("reporter"),
-                    "subject": ev.get("subject"),
-                })
+                items.append(
+                    {
+                        "student_guid": ev.get("studentGuid"),
+                        "event_code": ev.get("eventCode"),
+                        "justified": ev.get("justified"),
+                        "lesson_id": ev.get("lessonId"),
+                        "reporter_guid": ev.get("reporterGuid"),
+                        "timestamp": ev.get("timestamp"),
+                        "group_id": ev.get("groupId"),
+                        "lesson_type": ev.get("lessonType"),
+                        "lesson": ev.get("lesson"),
+                        "lesson_date": ev.get("lessonDate"),
+                        "lesson_reporter": ev.get("lessonReporter"),
+                        "achva_code": ev.get("achvaCode"),
+                        "achva_name": ev.get("achvaName"),
+                        "achva_aval": ev.get("achvaAval"),
+                        "justification_id": ev.get("justificationId"),
+                        "justification": ev.get("justification"),
+                        "reporter": ev.get("reporter"),
+                        "subject": ev.get("subject"),
+                    }
+                )
         except Exception as e:
             _LOGGER.debug("normalize behavior failed: %s", e)
         return items
@@ -602,12 +654,14 @@ class MashovClient:
         items = []
         try:
             for h in raw or []:
-                items.append({
-                    "id": h.get("id"),
-                    "name": h.get("hollyDayName") or h.get("holidayName") or h.get("name"),
-                    "start": h.get("startDate"),
-                    "end": h.get("endDate"),
-                })
+                items.append(
+                    {
+                        "id": h.get("id"),
+                        "name": h.get("hollyDayName") or h.get("holidayName") or h.get("name"),
+                        "start": h.get("startDate"),
+                        "end": h.get("endDate"),
+                    }
+                )
         except Exception as e:
             _LOGGER.debug("normalize holidays failed: %s", e)
         return items
@@ -617,19 +671,21 @@ class MashovClient:
         try:
             for r in raw or []:
                 log = r.get("lessonLog") or {}
-                items.append({
-                    "lesson_id": log.get("lessonID"),
-                    "group_id": log.get("groupId"),
-                    "lesson_date": log.get("lessonDate"),
-                    "lesson": log.get("lesson"),
-                    "took_place": log.get("tookPlace"),
-                    "remark": log.get("remark"),
-                    "homework": log.get("homeWork"),
-                    "lessontype": log.get("lessontype"),
-                    "reporter_guid": log.get("reporterGuid"),
-                    "group_name": r.get("groupName"),
-                    "subject_name": r.get("subjectName"),
-                })
+                items.append(
+                    {
+                        "lesson_id": log.get("lessonID"),
+                        "group_id": log.get("groupId"),
+                        "lesson_date": log.get("lessonDate"),
+                        "lesson": log.get("lesson"),
+                        "took_place": log.get("tookPlace"),
+                        "remark": log.get("remark"),
+                        "homework": log.get("homeWork"),
+                        "lessontype": log.get("lessontype"),
+                        "reporter_guid": log.get("reporterGuid"),
+                        "group_name": r.get("groupName"),
+                        "subject_name": r.get("subjectName"),
+                    }
+                )
         except Exception as e:
             _LOGGER.debug("normalize lessons history failed: %s", e)
         return items

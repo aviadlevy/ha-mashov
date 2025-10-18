@@ -1,4 +1,5 @@
 """Test Mashov integration initialization."""
+
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
@@ -16,9 +17,12 @@ async def test_setup_entry(hass: HomeAssistant, mock_config_entry: MockConfigEnt
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
-        client.async_open_session = AsyncMock()
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -32,8 +36,11 @@ async def test_setup_entry_auth_failed(hass: HomeAssistant, mock_config_entry: M
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=False)
-        client.async_open_session = AsyncMock()
 
         assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -47,10 +54,12 @@ async def test_unload_entry(hass: HomeAssistant, mock_config_entry: MockConfigEn
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
-        client.async_open_session = AsyncMock()
-        client.async_close_session = AsyncMock()
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -67,9 +76,12 @@ async def test_refresh_service(hass: HomeAssistant, mock_config_entry: MockConfi
 
     with patch("custom_components.mashov.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
-        client.async_open_session = AsyncMock()
 
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -85,4 +97,3 @@ async def test_refresh_service(hass: HomeAssistant, mock_config_entry: MockConfi
 
         # Verify coordinator refresh was called
         assert client.async_get_students.call_count >= 1
-

@@ -59,6 +59,7 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up from YAML (optional)."""
     hass.data.setdefault(DOMAIN, {})
@@ -76,6 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     try:
         import json
         import os
+
         current_dir = os.path.dirname(os.path.abspath(__file__))
         version_file = os.path.abspath(os.path.join(current_dir, "..", "..", "VERSION"))
         if not os.path.exists(version_file):
@@ -113,12 +115,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             yaml_present,
         )
         import sys  # local import to avoid unused-import when stripped by HA
+
         has_options_flow = hasattr(sys.modules[__name__], "async_get_options_flow")
         _LOGGER.debug("Module has async_get_options_flow: %s", has_options_flow)
         # Always log a concise INFO so it's visible even without DEBUG
         _LOGGER.info(
             "Mashov entry meta: source=%s, has_options_flow=%s, yaml_present=%s",
-            getattr(entry, "source", ""), has_options_flow, yaml_present,
+            getattr(entry, "source", ""),
+            has_options_flow,
+            yaml_present,
         )
     except Exception as e:
         _LOGGER.debug("Failed to log ConfigEntry diagnostics: %s", e)
@@ -192,7 +197,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             migrated = True
         if migrated:
             hass.config_entries.async_update_entry(entry, options=merged_opts)
-            _LOGGER.info("Migrated options: normalized schedule_days and dropped legacy schedule_day for entry %s", entry.title)
+            _LOGGER.info(
+                "Migrated options: normalized schedule_days and dropped legacy schedule_day for entry %s", entry.title
+            )
     except Exception as e:
         _LOGGER.debug("Options migration skipped: %s", e)
     if yaml_opts:
@@ -208,21 +215,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     cooldown_seconds = 6 * 60 * 60  # used only for interval
     last_ts = None
     try:
-        last_ts = float(cached.get("last_refresh_ts")) if isinstance(cached, dict) and cached.get("last_refresh_ts") else None
+        last_ts = (
+            float(cached.get("last_refresh_ts")) if isinstance(cached, dict) and cached.get("last_refresh_ts") else None
+        )
     except Exception:
         last_ts = None
 
     has_students = bool(getattr(coordinator, "data", None) and len((coordinator.data or {}).get("students", [])) > 0)
     # Refresh on startup if using interval OR if no students cached yet (first boot)
     do_startup_refresh = (schedule_type == "interval") or (not has_students)
-    if schedule_type == "interval" and last_ts is not None and (time.time() - last_ts) < cooldown_seconds and has_students:
+    if (
+        schedule_type == "interval"
+        and last_ts is not None
+        and (time.time() - last_ts) < cooldown_seconds
+        and has_students
+    ):
         do_startup_refresh = False
-        _LOGGER.info("Skipping startup refresh in interval mode due to cooldown (last=%s)", datetime.fromtimestamp(last_ts).isoformat(timespec="seconds"))
+        _LOGGER.info(
+            "Skipping startup refresh in interval mode due to cooldown (last=%s)",
+            datetime.fromtimestamp(last_ts).isoformat(timespec="seconds"),
+        )
     if schedule_type in ("daily", "weekly"):
         if not has_students:
             _LOGGER.info("Startup refresh enabled to warm up students (no cache present) [type=%s]", schedule_type)
         else:
-            _LOGGER.info("Startup refresh disabled for schedule_type=%s (defer to timers or manual service)", schedule_type)
+            _LOGGER.info(
+                "Startup refresh disabled for schedule_type=%s (defer to timers or manual service)", schedule_type
+            )
 
     if do_startup_refresh:
         try:
@@ -230,10 +249,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             await coordinator.async_config_entry_first_refresh()
             # Save cache after successful refresh
             try:
-                await store.async_save({
-                    "last_refresh_ts": time.time(),
-                    "data": coordinator.data,
-                })
+                await store.async_save(
+                    {
+                        "last_refresh_ts": time.time(),
+                        "data": coordinator.data,
+                    }
+                )
             except Exception as e:
                 _LOGGER.debug("Failed saving cache: %s", e)
         except Exception as e:
@@ -326,6 +347,7 @@ def async_get_options_flow(config_entry: ConfigEntry):
             getattr(config_entry, "title", ""),
         )
     from .config_flow import OptionsFlowHandler
+
     return OptionsFlowHandler(config_entry)
 
 
@@ -399,7 +421,9 @@ async def _async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry):
                 days.append(v)
     if not days:
         days = [schedule_day_single]
-    interval_minutes = _as_int(merged.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL), DEFAULT_SCHEDULE_INTERVAL, 5, 1440)
+    interval_minutes = _as_int(
+        merged.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL), DEFAULT_SCHEDULE_INTERVAL, 5, 1440
+    )
 
     # Rewire coordinator polling vs. timers
     coordinator: MashovCoordinator = data["coordinator"]
@@ -412,10 +436,12 @@ async def _async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry):
         # Persist cache after each scheduled refresh
         try:
             store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.cache")
-            await store.async_save({
-                "last_refresh_ts": time.time(),
-                "data": coordinator.data,
-            })
+            await store.async_save(
+                {
+                    "last_refresh_ts": time.time(),
+                    "data": coordinator.data,
+                }
+            )
         except Exception as e:
             _LOGGER.debug("Failed saving cache after refresh: %s", e)
 
@@ -438,6 +464,7 @@ async def _async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry):
 
         elif schedule_type == "weekly":
             _LOGGER.info("Weekly mode: days=%s at %02d:%02d", days, hh, mm)
+
             @callback
             async def _maybe_refresh_weekly(now=None):
                 try:

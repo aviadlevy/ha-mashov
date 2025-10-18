@@ -1,4 +1,5 @@
 """Test Mashov config flow."""
+
 from unittest.mock import AsyncMock, patch
 
 from homeassistant import config_entries
@@ -12,18 +13,18 @@ from .const import TEST_PASSWORD, TEST_SCHOOL_ID, TEST_SCHOOL_NAME, TEST_STUDENT
 
 async def test_user_flow_success(hass: HomeAssistant):
     """Test successful user flow."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
 
     with patch("custom_components.mashov.config_flow.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=True)
         client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
-        client.async_open_session = AsyncMock()
-        client.async_close_session = AsyncMock()
 
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -43,15 +44,15 @@ async def test_user_flow_success(hass: HomeAssistant):
 
 async def test_user_flow_auth_failed(hass: HomeAssistant):
     """Test user flow with authentication failure."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
 
     with patch("custom_components.mashov.config_flow.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(return_value=False)
-        client.async_open_session = AsyncMock()
-        client.async_close_session = AsyncMock()
 
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -68,15 +69,15 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
 
 async def test_user_flow_cannot_connect(hass: HomeAssistant):
     """Test user flow with connection failure."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
 
     with patch("custom_components.mashov.config_flow.MashovClient") as mock_client:
         client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
         client.async_authenticate = AsyncMock(side_effect=Exception("Connection error"))
-        client.async_open_session = AsyncMock()
-        client.async_close_session = AsyncMock()
 
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -109,4 +110,3 @@ async def test_options_flow(hass: HomeAssistant, mock_config_entry):
     )
 
     assert result2["type"] == FlowResultType.CREATE_ENTRY
-

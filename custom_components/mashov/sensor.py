@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -49,13 +48,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         name = stu["name"]
         _LOGGER.debug("Creating sensors for student: %s (id=%s, slug=%s)", name, sid, slug)
 
-        entities.extend([
-            MashovListSensor(coord, sid, slug, name, SENSOR_KEY_HOMEWORK, "Homework", "homework"),
-            MashovListSensor(coord, sid, slug, name, SENSOR_KEY_BEHAVIOR, "Behavior", "behavior"),
-            MashovListSensor(coord, sid, slug, name, SENSOR_KEY_WEEKLY_PLAN, "Weekly Plan", "weekly_plan"),
-            MashovListSensor(coord, sid, slug, name, SENSOR_KEY_TIMETABLE, "Timetable", "timetable"),
-            MashovListSensor(coord, sid, slug, name, SENSOR_KEY_LESSONS_HISTORY, "Lessons History", "lessons_history"),
-        ])
+        entities.extend(
+            [
+                MashovListSensor(coord, sid, slug, name, SENSOR_KEY_HOMEWORK, "Homework", "homework"),
+                MashovListSensor(coord, sid, slug, name, SENSOR_KEY_BEHAVIOR, "Behavior", "behavior"),
+                MashovListSensor(coord, sid, slug, name, SENSOR_KEY_WEEKLY_PLAN, "Weekly Plan", "weekly_plan"),
+                MashovListSensor(coord, sid, slug, name, SENSOR_KEY_TIMETABLE, "Timetable", "timetable"),
+                MashovListSensor(
+                    coord, sid, slug, name, SENSOR_KEY_LESSONS_HISTORY, "Lessons History", "lessons_history"
+                ),
+            ]
+        )
 
     # Global holidays sensor (per entry; ensure unique_id per entry)
     entities.append(MashovHolidaysSensor(coord, entry.entry_id))
@@ -67,7 +70,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class MashovListSensor(CoordinatorEntity, SensorEntity):
     _attr_icon = "mdi:school"
 
-    def __init__(self, coordinator, student_id: int, student_slug: str, student_name: str, key: str, name: str, data_key: str):
+    def __init__(
+        self, coordinator, student_id: int, student_slug: str, student_name: str, key: str, name: str, data_key: str
+    ):
         super().__init__(coordinator)
         self._student_id = student_id
         self._student_slug = student_slug
@@ -106,7 +111,11 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             "formatted_summary": formatted_data["summary"],
             "formatted_by_date": formatted_data["by_date"],
             "formatted_by_subject": formatted_data["by_subject"],
-            **({"formatted_table_html": formatted_data.get("table_html")} if isinstance(formatted_data, dict) and formatted_data.get("table_html") else {}),
+            **(
+                {"formatted_table_html": formatted_data.get("table_html")}
+                if isinstance(formatted_data, dict) and formatted_data.get("table_html")
+                else {}
+            ),
             # Refresh schedule
             "schedule_type": schedule_info.get("type"),
             "schedule_time": schedule_info.get("time"),
@@ -128,11 +137,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
     def _format_data_for_display(self, items: list) -> dict[str, Any]:
         """Format data for better readability and text-to-speech"""
         if not items:
-            return {
-                "summary": "אין נתונים זמינים",
-                "by_date": {},
-                "by_subject": {}
-            }
+            return {"summary": "אין נתונים זמינים", "by_date": {}, "by_subject": {}}
 
         if self._data_key == "homework":
             return self._format_homework_data(items)
@@ -144,20 +149,20 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             return self._format_timetable_data(items)
         if self._data_key == "lessons_history":
             return self._format_lessons_history(items)
-        return {
-            "summary": f"יש {len(items)} פריטים",
-            "by_date": {},
-            "by_subject": {}
-        }
+        return {"summary": f"יש {len(items)} פריטים", "by_date": {}, "by_subject": {}}
 
     def _compute_schedule_info(self) -> dict[str, Any]:
         """Return current refresh schedule configuration and friendly description."""
         try:
             from datetime import datetime, timedelta
+
             opts = getattr(self.coordinator, "entry", None).options if hasattr(self.coordinator, "entry") else {}
             # Merge YAML overrides if present
-            yaml_opts = (getattr(self.coordinator, "hass", None).data.get(DOMAIN, {}).get("yaml_options", {})
-                         if hasattr(self.coordinator, "hass") else {})
+            yaml_opts = (
+                getattr(self.coordinator, "hass", None).data.get(DOMAIN, {}).get("yaml_options", {})
+                if hasattr(self.coordinator, "hass")
+                else {}
+            )
             merged = dict(opts)
             if yaml_opts:
                 merged.update({k: v for k, v in yaml_opts.items() if v is not None})
@@ -304,11 +309,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
 
         summary = f"יש {total_homework} שיעורים ב-{subjects_count} מקצועות על פני {dates_count} תאריכים"
 
-        return {
-            "summary": summary,
-            "by_date": by_date,
-            "by_subject": by_subject
-        }
+        return {"summary": summary, "by_date": by_date, "by_subject": by_subject}
 
     def _format_behavior_data(self, items: list) -> dict[str, Any]:
         """Format behavior data for display"""
@@ -360,7 +361,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
         return {
             "summary": summary,
             "by_date": by_date,
-            "by_subject": by_type  # Using by_subject key for consistency
+            "by_subject": by_type,  # Using by_subject key for consistency
         }
 
     def _format_weekly_plan_data(self, items: list) -> dict[str, Any]:
@@ -402,7 +403,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
                     by_date[formatted_date] = []
                 by_date[formatted_date].append(f"שיעור {lesson_raw}: {subject}")
 
-            by_subject.setdefault(subject, []).append(f"שיעור {lesson_raw}{' ('+room+')' if room else ''}")
+            by_subject.setdefault(subject, []).append(f"שיעור {lesson_raw}{' (' + room + ')' if room else ''}")
 
             try:
                 day_i = int(day_raw) if day_raw is not None else None
@@ -410,13 +411,15 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             except Exception:
                 day_i, lesson_i = None, None
 
-            normalized.append({
-                "day": day_i,
-                "lesson": lesson_i,
-                "subject": subject,
-                "teacher": teacher,
-                "room": room,
-            })
+            normalized.append(
+                {
+                    "day": day_i,
+                    "lesson": lesson_i,
+                    "subject": subject,
+                    "teacher": teacher,
+                    "room": room,
+                }
+            )
 
         # Determine day mapping and headers
         day_values = [n["day"] for n in normalized if isinstance(n.get("day"), int)]
@@ -430,12 +433,17 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
 
         if uses_sunday_based:
             headers = headers_sun
+
             def to_col(d):
                 return max(0, min(6, int(d) - 1))  # 1->0 ... 7->6
         else:
             headers = headers_mon
+
             def to_col(d):
-                return max(0, min(6, (int(d) + 6) % 7))  # 0(Mon)->6? We want order Mon..Sun mapped to 0..6 index of headers_mon
+                return max(
+                    0, min(6, (int(d) + 6) % 7)
+                )  # 0(Mon)->6? We want order Mon..Sun mapped to 0..6 index of headers_mon
+
             # Explanation: headers_mon starts at Monday, but rendered order is Mon..Sun; mapping (d) to index accordingly
 
         # Determine max lessons
@@ -462,17 +470,24 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
         # HTML table (works inside Markdown card)
         html = [
             '<table style="width:100%; border-collapse:collapse; text-align:center; direction:rtl;">',
-            '<thead><tr>' + ''.join(f'<th style="border:1px solid var(--divider-color); padding:4px; background:var(--table-header-background-color, var(--primary-color)) ; color: var(--text-primary-color, #fff);">{h}</th>' for h in headers) + '</tr></thead>',
-            '<tbody>'
+            "<thead><tr>"
+            + "".join(
+                f'<th style="border:1px solid var(--divider-color); padding:4px; background:var(--table-header-background-color, var(--primary-color)) ; color: var(--text-primary-color, #fff);">{h}</th>'
+                for h in headers
+            )
+            + "</tr></thead>",
+            "<tbody>",
         ]
         for _i, row in enumerate(table_rows, start=1):
-            html.append('<tr>')
+            html.append("<tr>")
             for cell in row:
-                cell_html = cell.replace('\n', '<br/>') if cell else ''
-                html.append(f'<td style="border:1px solid var(--divider-color); padding:6px; vertical-align:top;">{cell_html}</td>')
-            html.append('</tr>')
-        html.append('</tbody></table>')
-        table_html = ''.join(html)
+                cell_html = cell.replace("\n", "<br/>") if cell else ""
+                html.append(
+                    f'<td style="border:1px solid var(--divider-color); padding:6px; vertical-align:top;">{cell_html}</td>'
+                )
+            html.append("</tr>")
+        html.append("</tbody></table>")
+        table_html = "".join(html)
 
         # Create summary
         total_plans = len(items)
@@ -501,6 +516,7 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
 
     def _format_lessons_history(self, items: list) -> dict[str, Any]:
         from datetime import datetime
+
         by_date = {}
         by_subject = {}
         for it in items:
@@ -554,6 +570,7 @@ class MashovHolidaysSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         from datetime import datetime
+
         data = self.coordinator.data or {}
         items = data.get("holidays") or []
 
@@ -563,6 +580,7 @@ class MashovHolidaysSensor(CoordinatorEntity, SensorEntity):
             start = h.get("start") or ""
             end = h.get("end") or ""
             name = h.get("name") or "חג/חופשה"
+
             # format dates dd/mm/yyyy
             def fmt(dt):
                 if not dt:
@@ -572,6 +590,7 @@ class MashovHolidaysSensor(CoordinatorEntity, SensorEntity):
                     return d.strftime("%d/%m/%Y")
                 except Exception:
                     return dt.split("T")[0]
+
             start_f = fmt(start)
             end_f = fmt(end)
             key = f"{start_f}–{end_f}" if end_f and end_f != start_f else start_f

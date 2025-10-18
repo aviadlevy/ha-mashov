@@ -65,4 +65,3 @@ TEST_HOLIDAYS = [
         "name": "Test Holiday",
     }
 ]
-
