@@ -20,6 +20,7 @@ async def test_user_flow_success(hass: HomeAssistant):
     # Prevent actual setup from running - we only test the config flow
     with (
         patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
+        patch("custom_components.mashov.async_setup", return_value=True),
         patch("custom_components.mashov.async_setup_entry", return_value=True),
     ):
         client = mock_client.return_value
@@ -77,6 +78,7 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
     # Prevent actual setup from running - we only test the config flow
     with (
         patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
+        patch("custom_components.mashov.async_setup", return_value=True),
         patch("custom_components.mashov.async_setup_entry", return_value=True),
     ):
         client = mock_client.return_value
@@ -118,6 +120,7 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant):
     # Prevent actual setup from running - we only test the config flow
     with (
         patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
+        patch("custom_components.mashov.async_setup", return_value=True),
         patch("custom_components.mashov.async_setup_entry", return_value=True),
     ):
         client = mock_client.return_value
