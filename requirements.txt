@@ -1,0 +1,25 @@
+# Development and testing requirements for ha-mashov integration
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-homeassistant-custom-component>=0.13.288
+pytest-cov>=4.1.0
+syrupy>=4.0.0
+
+# Linting and formatting
+ruff>=0.1.0
+
+# Type checking
+mypy>=1.7.0
+
+# Home Assistant
+homeassistant>=2025.1.0
+
+# Integration dependencies
+voluptuous>=0.13.1
+aiohttp>=3.9.0
+
+# Development tools
+pre-commit>=3.5.0
+

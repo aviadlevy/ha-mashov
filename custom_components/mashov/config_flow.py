@@ -1,9 +1,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import voluptuous as vol  # type: ignore[import-not-found]
+
 from homeassistant import config_entries  # type: ignore[import-not-found]
 from homeassistant.core import callback  # type: ignore[import-not-found]
 from homeassistant.data_entry_flow import FlowResult  # type: ignore[import-not-found]
@@ -12,18 +11,34 @@ from homeassistant.helpers.selector import (  # type: ignore[import-not-found]
     SelectSelectorConfig,
     SelectSelectorMode,
 )
+import voluptuous as vol  # type: ignore[import-not-found]
 
 _LOGGER = logging.getLogger(__name__)
 
 from .const import (
+    CONF_API_BASE,
+    CONF_HOMEWORK_DAYS_BACK,
+    CONF_HOMEWORK_DAYS_FORWARD,
+    CONF_PASSWORD,
+    CONF_SCHEDULE_DAY,
+    CONF_SCHEDULE_DAYS,
+    CONF_SCHEDULE_INTERVAL,
+    CONF_SCHEDULE_TIME,
+    CONF_SCHEDULE_TYPE,
+    CONF_SCHOOL_ID,
+    CONF_SCHOOL_NAME,
+    CONF_USERNAME,
+    DEFAULT_API_BASE,
+    DEFAULT_HOMEWORK_DAYS_BACK,
+    DEFAULT_HOMEWORK_DAYS_FORWARD,
+    DEFAULT_SCHEDULE_DAY,
+    DEFAULT_SCHEDULE_INTERVAL,
+    DEFAULT_SCHEDULE_TIME,
+    DEFAULT_SCHEDULE_TYPE,
     DOMAIN,
-    CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_USERNAME, CONF_PASSWORD,
-    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_API_BASE,
-    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
-    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_API_BASE,
-    DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL
 )
-from .mashov_client import MashovClient, MashovAuthError, MashovError
+from .mashov_client import MashovAuthError, MashovClient, MashovError
+
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -57,7 +72,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 # Load catalog directly
                 catalog = await self._load_schools_catalog()
-                
+
                 if catalog and len(catalog) > 0:
                     # Sort by name for better autocomplete - handle None values
                     sorted_catalog = sorted(catalog, key=lambda x: (x.get('name') or '').lower())
@@ -79,10 +94,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Build schema with text input and autocomplete
         if self._catalog_options and len(self._catalog_options) > 0:
             _LOGGER.debug("Created %d autocomplete options", len(self._catalog_options))
-            
+
             # Create simple autocomplete list
             autocomplete_list = [opt['label'] for opt in self._catalog_options]
-            
+
             schema = vol.Schema({
                 vol.Required(CONF_USERNAME): str,
                 vol.Required(CONF_PASSWORD): str,
@@ -102,7 +117,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Determine school id from autocomplete or manual input
             school_raw = user_input[CONF_SCHOOL_NAME].strip()
             _LOGGER.debug("School input: %s", school_raw)
-            
+
             if school_raw.isdigit():
                 # Direct semel number
                 user_input[CONF_SCHOOL_ID] = int(school_raw)
@@ -127,11 +142,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         await tmp_client.async_open_session()
                         results = await tmp_client.async_search_schools(school_raw, None)
                         await tmp_client.async_close()
-                        
+
                         if not results:
                             errors["base"] = "school_not_found"
                             return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
-                        
+
                         if len(results) > 1:
                             self._cached_user = user_input
                             # Create choices with school name and semel
@@ -144,7 +159,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                     self._school_choices[label] = int(semel)
                             _LOGGER.debug("Created %d school choices: %s", len(self._school_choices), list(self._school_choices.keys()))
                             return await self.async_step_pick_school()
-                        
+
                         user_input[CONF_SCHOOL_ID] = int(results[0]["semel"])
                         # Cache plain school name for title
                         self._cached_user = dict(user_input)
@@ -191,7 +206,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Convert string value back to int
             selected_semel = int(user_input["selected_school"])
             self._cached_user[CONF_SCHOOL_ID] = selected_semel
-            
+
             # Find the school name from the choices (extract plain name without city/semel)
             school_name = None
             for label, semel in self._school_choices.items():
@@ -199,13 +214,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # label format: "Name – City (Semel)"
                     school_name = label.split(" – ")[0].split(" (")[0]
                     break
-            
+
             self._cached_user[CONF_SCHOOL_NAME] = school_name or str(selected_semel)
             return await self.async_step_user(self._cached_user)
 
         # Convert choices to SelectSelector format - values must be strings
         options = [{"value": str(semel), "label": label} for label, semel in self._school_choices.items()]
-        
+
         schema = vol.Schema({
             vol.Required("selected_school"): SelectSelector(
                 SelectSelectorConfig(

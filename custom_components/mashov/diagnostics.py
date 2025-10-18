@@ -1,11 +1,11 @@
 
 from __future__ import annotations
 
-from homeassistant.core import HomeAssistant
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, CONF_PASSWORD, CONF_USERNAME
+from .const import CONF_PASSWORD, CONF_USERNAME, DOMAIN
 
 TO_REDACT = {CONF_PASSWORD, CONF_USERNAME}
 

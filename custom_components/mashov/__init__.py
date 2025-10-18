@@ -1,27 +1,42 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta
 import logging
-from datetime import timedelta, datetime
 import time
 
-import voluptuous as vol  # type: ignore
 from homeassistant.config_entries import ConfigEntry  # type: ignore
 from homeassistant.core import HomeAssistant, ServiceCall, callback  # type: ignore
 from homeassistant.helpers.event import async_track_time_change  # type: ignore
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed  # type: ignore
 from homeassistant.helpers.storage import Store  # type: ignore
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed  # type: ignore
+import voluptuous as vol  # type: ignore
 
 from .const import (
+    CONF_API_BASE,
+    CONF_HOMEWORK_DAYS_BACK,
+    CONF_HOMEWORK_DAYS_FORWARD,
+    CONF_PASSWORD,
+    CONF_SCHEDULE_DAY,
+    CONF_SCHEDULE_DAYS,
+    CONF_SCHEDULE_INTERVAL,
+    CONF_SCHEDULE_TIME,
+    CONF_SCHEDULE_TYPE,
+    CONF_SCHOOL_ID,
+    CONF_SCHOOL_NAME,
+    CONF_USERNAME,
+    CONF_YEAR,
+    DEFAULT_API_BASE,
+    DEFAULT_HOMEWORK_DAYS_BACK,
+    DEFAULT_HOMEWORK_DAYS_FORWARD,
+    DEFAULT_SCHEDULE_DAY,
+    DEFAULT_SCHEDULE_INTERVAL,
+    DEFAULT_SCHEDULE_TIME,
+    DEFAULT_SCHEDULE_TYPE,
     DOMAIN,
     PLATFORMS,
-    CONF_SCHOOL_ID, CONF_SCHOOL_NAME, CONF_YEAR, CONF_USERNAME, CONF_PASSWORD,
-    CONF_HOMEWORK_DAYS_BACK, CONF_HOMEWORK_DAYS_FORWARD, CONF_API_BASE,
-    CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
-    DEFAULT_HOMEWORK_DAYS_BACK, DEFAULT_HOMEWORK_DAYS_FORWARD, DEFAULT_API_BASE,
-    DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL,
 )
-from .mashov_client import MashovClient, MashovAuthError, MashovError
+from .mashov_client import MashovAuthError, MashovClient, MashovError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,7 +73,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Try to log version info (best effort)
     try:
-        import os, json
+        import json
+        import os
         current_dir = os.path.dirname(os.path.abspath(__file__))
         version_file = os.path.abspath(os.path.join(current_dir, "..", "..", "VERSION"))
         if not os.path.exists(version_file):
@@ -66,13 +82,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             if os.path.exists(alt):
                 version_file = alt
         if os.path.exists(version_file):
-            with open(version_file, "r", encoding="utf-8") as f:
+            with open(version_file, encoding="utf-8") as f:
                 version = f.read().strip()
             _LOGGER.info("Setting up Mashov integration v%s for entry: %s", version, entry.title)
         else:
             manifest_file = os.path.join(current_dir, "manifest.json")
             if os.path.exists(manifest_file):
-                with open(manifest_file, "r", encoding="utf-8") as f:
+                with open(manifest_file, encoding="utf-8") as f:
                     version = json.load(f).get("version", "unknown")
                 _LOGGER.info("Setting up Mashov integration v%s for entry: %s (from manifest)", version, entry.title)
             else:
@@ -319,8 +335,13 @@ def async_get_options_flow(config_entry: ConfigEntry):
 async def _async_setup_scheduler(hass: HomeAssistant, entry: ConfigEntry):
     """Apply merged (YAML-overriding-UI) options and configure polling/timers."""
     from .const import (
-        CONF_SCHEDULE_TYPE, CONF_SCHEDULE_TIME, CONF_SCHEDULE_DAY, CONF_SCHEDULE_DAYS, CONF_SCHEDULE_INTERVAL,
-        DEFAULT_SCHEDULE_TYPE, DEFAULT_SCHEDULE_TIME, DEFAULT_SCHEDULE_DAY, DEFAULT_SCHEDULE_INTERVAL,
+        CONF_SCHEDULE_DAY,
+        CONF_SCHEDULE_DAYS,
+        CONF_SCHEDULE_INTERVAL,
+        CONF_SCHEDULE_TIME,
+        CONF_SCHEDULE_TYPE,
+        DEFAULT_SCHEDULE_DAY,
+        DEFAULT_SCHEDULE_TYPE,
     )
 
     data = hass.data[DOMAIN][entry.entry_id]

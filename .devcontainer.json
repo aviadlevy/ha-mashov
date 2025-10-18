@@ -1,0 +1,32 @@
+{
+  "name": "Mashov Integration Development",
+  "image": "ghcr.io/home-assistant/devcontainer:latest",
+  "appPort": ["9123:8123"],
+  "postCreateCommand": "container install",
+  "extensions": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "github.vscode-pull-request-github",
+    "redhat.vscode-yaml"
+  ],
+  "settings": {
+    "python.pythonPath": "/usr/bin/python3",
+    "python.analysis.autoSearchPaths": true,
+    "python.linting.enabled": true,
+    "python.formatting.provider": "none",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.fixAll": true,
+        "source.organizeImports": true
+      }
+    },
+    "files.eol": "\n",
+    "editor.tabSize": 4,
+    "terminal.integrated.defaultProfile.linux": "zsh"
+  },
+  "remoteUser": "vscode"
+}
+

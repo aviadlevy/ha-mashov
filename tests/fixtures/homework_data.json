@@ -1,0 +1,21 @@
+[
+  {
+    "lessonId": "lesson-001",
+    "lesson_date": "2024-01-15T00:00:00",
+    "lesson": 1,
+    "groupId": "group-math-001",
+    "subject_name": "Mathematics",
+    "homework": "Complete exercises 1-10 on page 45",
+    "remark": "Bring calculator"
+  },
+  {
+    "lessonId": "lesson-002",
+    "lesson_date": "2024-01-15T00:00:00",
+    "lesson": 3,
+    "groupId": "group-eng-001",
+    "subject_name": "English",
+    "homework": "Read chapter 5 and answer questions",
+    "remark": ""
+  }
+]
+

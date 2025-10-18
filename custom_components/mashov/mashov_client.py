@@ -2,18 +2,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from datetime import date, timedelta
-from typing import Any, Dict, Optional, List, TYPE_CHECKING
-import re
+import logging
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import aiohttp  # type: ignore[import]
+
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant  # type: ignore[import]  # pyright: ignore[reportMissingImports]
 else:
     HomeAssistant = Any
-from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ def _trace(msg: str, *args):
 API_BASE = "https://web.mashov.info/api/"  # default; can be overridden
 LOGIN_ENDPOINT = None
 ME_ENDPOINT = None
-ENDPOINTS: Dict[str, str] = {}
+ENDPOINTS: dict[str, str] = {}
 
 class MashovError(Exception):
     pass
@@ -68,13 +67,13 @@ class MashovClient:
         self.homework_days_forward = homework_days_forward
 
         self._session: aiohttp.ClientSession | None = None
-        self._headers: Dict[str, str] = {}
+        self._headers: dict[str, str] = {}
         self._api_base = (api_base or API_BASE).rstrip('/') + '/'
         self._resolve_endpoints()
 
         # store all students
-        self._students: List[Dict[str, Any]] = []  # [{id, name, slug}]
-        self._auth_data: Dict[str, Any] = {}  # Store authentication response data
+        self._students: list[dict[str, Any]] = []  # [{id, name, slug}]
+        self._auth_data: dict[str, Any] = {}  # Store authentication response data
 
     def _resolve_endpoints(self):
         global LOGIN_ENDPOINT, ME_ENDPOINT, ENDPOINTS
@@ -110,7 +109,7 @@ class MashovClient:
             finally:
                 self._session = None
 
-    async def async_fetch_schools_catalog(self, year: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def async_fetch_schools_catalog(self, year: int | None = None) -> list[dict[str, Any]]:
         """Fetch a full list of schools for dropdown; best-effort across deployments."""
         await self.async_open_session()
         yr = year or self.year
@@ -122,7 +121,7 @@ class MashovClient:
             (self._api_base + "institutions", None),
         ]
 
-        all_items: List[Dict[str, Any]] = []
+        all_items: list[dict[str, Any]] = []
         for url, hdrs in candidates:
             try:
                 _trace("Trying schools catalog endpoint: %s", url)
@@ -148,7 +147,7 @@ class MashovClient:
         _LOGGER.debug("Schools catalog completed: %d unique schools found", len(result))
         return result
 
-    async def async_search_schools(self, query: str, year: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def async_search_schools(self, query: str, year: int | None = None) -> list[dict[str, Any]]:
         if not self._session:
             await self.async_open_session()
         q = query.strip()
@@ -179,8 +178,8 @@ class MashovClient:
         _LOGGER.warning("No schools found for query '%s'", q)
         return []
 
-    def _normalize_schools_list(self, raw, query: Optional[str] = None) -> List[Dict[str, Any]]:
-        items: List[Dict[str, Any]] = []
+    def _normalize_schools_list(self, raw, query: str | None = None) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         def add(semel, name, city=None):
             try:
                 semel = int(semel)
@@ -212,11 +211,11 @@ class MashovClient:
 
     async def async_init(self, hass: HomeAssistant):
         _LOGGER.info("=== MASHOV CLIENT INIT START ===")
-        _LOGGER.info("Initializing Mashov client for school=%s, year=%s, user=%s", 
+        _LOGGER.info("Initializing Mashov client for school=%s, year=%s, user=%s",
                      self.school_id or self.school_name, self.year, self.username)
         _LOGGER.info("API Base URL: %s", self._api_base)
         await self.async_open_session()
-        
+
         # Add retry mechanism for login
         max_retries = 3
         retry_delay = 2
@@ -240,7 +239,7 @@ class MashovClient:
             "IsBiometric": False,
             "appName": "info.mashov.students",
             "apiVersion": "4.20250101",
-            "appVersion": "4.20250101", 
+            "appVersion": "4.20250101",
             "appBuild": "4.20250101",
             "deviceUuid": "chrome-ha",
             "devicePlatform": "chrome",
@@ -259,17 +258,17 @@ class MashovClient:
         last_error = None
         for attempt in range(max_retries):
             _LOGGER.info("=== LOGIN ATTEMPT %d/%d ===", attempt + 1, max_retries)
-            _LOGGER.info("Login attempt %d/%d (semel=%s, year=%s, user=%s)", 
+            _LOGGER.info("Login attempt %d/%d (semel=%s, year=%s, user=%s)",
                          attempt + 1, max_retries, self.school_id, self.year, self.username)
             _LOGGER.info("Login endpoint: %s", LOGIN_ENDPOINT)
             try:
                 async with self._session.post(LOGIN_ENDPOINT, json=payload, headers=headers) as resp:
                     _LOGGER.info("Login response status: %s", resp.status)
                     _LOGGER.info("Login response headers: %s", dict(resp.headers))
-                    
+
                     if resp.status in (401, 403):
                         txt = await resp.text()
-                        _LOGGER.error("Authentication failed for school=%s, year=%s, user=%s. Response: %s", 
+                        _LOGGER.error("Authentication failed for school=%s, year=%s, user=%s. Response: %s",
                                      self.school_id, self.year, self.username, txt)
                         raise MashovAuthError("Authentication failed. Please check your credentials, school ID, and year.")
                     if resp.status >= 400:
@@ -280,7 +279,7 @@ class MashovClient:
                             await asyncio.sleep(retry_delay)
                             continue
                         raise MashovError(f"Login failed HTTP {resp.status}: {txt}")
-                    
+
                     # Try to parse response
                     try:
                         data = await resp.json(content_type=None)
@@ -291,11 +290,11 @@ class MashovClient:
                         txt = await resp.text()
                         _LOGGER.error("Login response text: %s", txt)
                         data = {}
-                    
+
                     # Check if we have authentication data
-                    
+
                     self._headers = {"Accept": "application/json"}
-                    
+
                     # Extract CSRF token from response headers
                     csrf_token = resp.headers.get('x-csrf-token') or resp.headers.get('X-Csrf-Token')
                     if csrf_token:
@@ -303,12 +302,12 @@ class MashovClient:
                         self._headers["X-Csrf-Token"] = csrf_token
                     else:
                         _LOGGER.warning("No CSRF token found in response headers")
-                    
+
                     # If we have accessToken data (even if it's a dict), we can proceed
                     _LOGGER.debug("Checking authentication data...")
                     _LOGGER.debug("Has accessToken: %s", bool(data.get("accessToken")))
                     _LOGGER.debug("Has credential: %s", bool(data.get("credential")))
-                    
+
                     # Log the type of accessToken to help debug
                     access_token = data.get("accessToken")
                     if access_token:
@@ -317,7 +316,7 @@ class MashovClient:
                             _LOGGER.info("accessToken is dict with keys: %s", list(access_token.keys()))
                         elif isinstance(access_token, str):
                             _LOGGER.info("accessToken is string, length: %d", len(access_token))
-                    
+
                     # Check for authentication success - either accessToken or credential
                     has_auth = bool(data.get("accessToken")) or bool(data.get("credential"))
                     if has_auth:
@@ -326,19 +325,18 @@ class MashovClient:
                         # Store the full response data for later use
                         self._auth_data = data
                         break  # Success, exit retry loop
-                    else:
-                        _LOGGER.error("=== AUTHENTICATION FAILED ===")
-                        _LOGGER.error("No authentication data received. Available data keys: %s, headers: %s", 
-                                       list(data.keys()) if isinstance(data, dict) else "not a dict",
-                                       list(resp.headers.keys()))
-                        _LOGGER.error("Full response data: %s", data)
-                        if attempt < max_retries - 1:
-                            _LOGGER.info("Retrying login in %d seconds...", retry_delay)
-                            await asyncio.sleep(retry_delay)
-                            continue
-                        raise MashovError("No authentication data received after multiple attempts")
-                        
-            except asyncio.TimeoutError as e:
+                    _LOGGER.error("=== AUTHENTICATION FAILED ===")
+                    _LOGGER.error("No authentication data received. Available data keys: %s, headers: %s",
+                                   list(data.keys()) if isinstance(data, dict) else "not a dict",
+                                   list(resp.headers.keys()))
+                    _LOGGER.error("Full response data: %s", data)
+                    if attempt < max_retries - 1:
+                        _LOGGER.info("Retrying login in %d seconds...", retry_delay)
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    raise MashovError("No authentication data received after multiple attempts")
+
+            except TimeoutError as e:
                 last_error = e
                 _LOGGER.warning("Login timeout on attempt %d/%d", attempt + 1, max_retries)
                 if attempt < max_retries - 1:
@@ -357,16 +355,16 @@ class MashovClient:
 
         # Extract students from authentication response
         _LOGGER.info("=== EXTRACTING STUDENTS FROM AUTH RESPONSE ===")
-        
+
         # Get children from the authentication response
         children = self._auth_data.get("accessToken", {}).get("children", [])
         _LOGGER.info("Found %d children in auth response", len(children))
-        
+
         if not children:
             _LOGGER.error("No children found in authentication response")
             raise MashovError("No children found in authentication response")
-        
-        students: List[Dict[str, Any]] = []
+
+        students: list[dict[str, Any]] = []
         for child in children:
             # Extract child information
             child_guid = child.get("childGuid")
@@ -375,37 +373,37 @@ class MashovClient:
             class_code = child.get("classCode", "")
             class_num = child.get("classNum", "")
             groups = child.get("groups", [])
-            
+
             # Create display name
             name = f"{private_name} {family_name}"
             if class_code and class_num:
                 name += f" ({class_code}{class_num})"
-            
+
             # Use childGuid directly as the student ID
             if not child_guid:
                 _LOGGER.warning("Child without GUID found: %s", child)
                 continue
-                
+
             _LOGGER.info("Student %s has groups: %s", name, groups)
-                
+
             students.append({
                 "id": child_guid,  # Use childGuid directly as ID
-                "name": name, 
+                "name": name,
                 "slug": _slugify(name) or f"student_{child_guid}",
                 "child_guid": child_guid,
                 "class_code": class_code,
                 "class_num": class_num,
                 "groups": groups
             })
-            
+
         self._students = students
         _LOGGER.info("=== STUDENTS PROCESSING COMPLETE ===")
         _LOGGER.info("Mashov: found %d student(s): %s", len(students), ", ".join([s["name"] for s in students]))
-        
+
         # Keep session open for future use - don't close it here
         _LOGGER.info("=== MASHOV CLIENT INIT COMPLETE ===")
 
-    async def async_fetch_all(self) -> Dict[str, Any]:
+    async def async_fetch_all(self) -> dict[str, Any]:
         _LOGGER.info("=== FETCHING ALL DATA ===")
         # Ensure session and authentication are available (lazy login)
         if not self._session or self._session.closed:
@@ -413,7 +411,7 @@ class MashovClient:
         if not self._students or "X-Csrf-Token" not in self._headers:
             _LOGGER.debug("No students/csrf in memory – performing lazy login")
             await self.async_init(None)
-        
+
         # Ensure we have CSRF token in headers (after lazy login should exist)
         if "X-Csrf-Token" not in self._headers:
             _LOGGER.warning("No CSRF token found in headers for data fetching")
@@ -422,13 +420,13 @@ class MashovClient:
         from_dt = (today - timedelta(days=self.homework_days_back)).isoformat()
         to_dt = (today + timedelta(days=self.homework_days_forward)).isoformat()
         day_str = today.isoformat()
-        
-        _LOGGER.info("Fetching data for %d students from %s to %s", 
+
+        _LOGGER.info("Fetching data for %d students from %s to %s",
                      len(self._students), from_dt, to_dt)
 
         async def fetch_for_student(stu):
             sid = stu["id"]
-            
+
             urls = {
                 "homework":        ENDPOINTS["homework"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
                 "behavior":        ENDPOINTS["behavior"].format(student_id=sid, start=from_dt, end=to_dt, year=self.year),
@@ -515,7 +513,7 @@ class MashovClient:
             "by_slug": by_slug,
             "holidays": holidays,
         }
-        
+
         _LOGGER.debug("Data fetch completed for %d students", len(self._students))
         return result
 
