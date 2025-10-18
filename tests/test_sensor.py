@@ -64,7 +64,7 @@ async def test_homework_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
 
     assert state is not None
     assert state.state == str(len(TEST_HOMEWORK))
-    assert state.attributes.get("Items") == TEST_HOMEWORK
+    assert state.attributes.get("items") == TEST_HOMEWORK
 
 
 async def test_behavior_sensor(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
@@ -116,7 +116,7 @@ async def test_behavior_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
 
     assert state is not None
     assert state.state == str(len(TEST_BEHAVIOR))
-    assert state.attributes.get("Items") == TEST_BEHAVIOR
+    assert state.attributes.get("items") == TEST_BEHAVIOR
 
 
 async def test_timetable_sensor(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
@@ -167,7 +167,7 @@ async def test_timetable_sensor(hass: HomeAssistant, mock_config_entry: MockConf
     state = hass.states.get(timetable_entity_id)
 
     assert state is not None
-    assert state.attributes.get("Items") == TEST_TIMETABLE
+    assert state.attributes.get("items") == TEST_TIMETABLE
 
 
 async def test_holidays_sensor(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
@@ -219,4 +219,4 @@ async def test_holidays_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
 
     assert state is not None
     assert state.state == str(len(TEST_HOLIDAYS))
-    assert state.attributes.get("Items") == TEST_HOLIDAYS
+    assert state.attributes.get("items") == TEST_HOLIDAYS

@@ -54,7 +54,7 @@ async def test_user_flow_success(hass: HomeAssistant):
             {
                 "username": TEST_USERNAME,
                 "password": TEST_PASSWORD,
-                "school_id": TEST_SCHOOL_ID,
+                "school_name": TEST_SCHOOL_ID,  # Can be school ID or name
             },
         )
 
@@ -89,7 +89,7 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
             {
                 "username": TEST_USERNAME,
                 "password": TEST_PASSWORD,
-                "school_id": TEST_SCHOOL_ID,
+                "school_name": TEST_SCHOOL_ID,  # Can be school ID or name
             },
         )
 
@@ -115,12 +115,12 @@ async def test_user_flow_cannot_connect(hass: HomeAssistant):
             {
                 "username": TEST_USERNAME,
                 "password": TEST_PASSWORD,
-                "school_id": TEST_SCHOOL_ID,
+                "school_name": TEST_SCHOOL_ID,  # Can be school ID or name
             },
         )
 
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "cannot_connect"}
+        assert result2["type"] == FlowResultType.FORM
+        assert result2["errors"] == {"base": "cannot_connect"}
 
 
 async def test_options_flow(hass: HomeAssistant, mock_config_entry):
