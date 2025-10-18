@@ -8,7 +8,7 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.mashov.const import DOMAIN
 
-from .const import TEST_PASSWORD, TEST_SCHOOL_ID, TEST_SCHOOL_NAME, TEST_STUDENT, TEST_USERNAME
+from .const import TEST_PASSWORD, TEST_SCHOOL_ID, TEST_STUDENT, TEST_USERNAME
 
 
 async def test_user_flow_success(hass: HomeAssistant):
@@ -17,7 +17,11 @@ async def test_user_flow_success(hass: HomeAssistant):
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
 
-    with patch("custom_components.mashov.config_flow.MashovClient") as mock_client:
+    # Prevent actual setup from running - we only test the config flow
+    with (
+        patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
+        patch("custom_components.mashov.async_setup_entry", return_value=True),
+    ):
         client = mock_client.return_value
         client.async_init = AsyncMock(return_value=None)
         client.async_close = AsyncMock(return_value=None)
@@ -70,7 +74,11 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
     """Test user flow with authentication failure."""
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
 
-    with patch("custom_components.mashov.config_flow.MashovClient") as mock_client:
+    # Prevent actual setup from running - we only test the config flow
+    with (
+        patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
+        patch("custom_components.mashov.async_setup_entry", return_value=True),
+    ):
         client = mock_client.return_value
         client.async_init = AsyncMock(return_value=None)
         client.async_close = AsyncMock(return_value=None)
@@ -101,13 +109,17 @@ async def test_user_flow_auth_failed(hass: HomeAssistant):
 
 async def test_user_flow_cannot_connect(hass: HomeAssistant):
     """Test user flow with connection failure.
-    
+
     Note: Config flow creates the entry successfully. Connection is validated
     during setup, not during config flow.
     """
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
 
-    with patch("custom_components.mashov.config_flow.MashovClient") as mock_client:
+    # Prevent actual setup from running - we only test the config flow
+    with (
+        patch("custom_components.mashov.config_flow.MashovClient") as mock_client,
+        patch("custom_components.mashov.async_setup_entry", return_value=True),
+    ):
         client = mock_client.return_value
         client.async_init = AsyncMock(return_value=None)
         client.async_close = AsyncMock(return_value=None)
