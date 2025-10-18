@@ -199,7 +199,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 await client.async_close()
                 # Get school name from the cached data or use semel as fallback
-                school_name = self._cached_user.get(CONF_SCHOOL_NAME, user_input[CONF_SCHOOL_ID])
+                if self._cached_user and CONF_SCHOOL_NAME in self._cached_user:
+                    school_name = self._cached_user[CONF_SCHOOL_NAME]
+                else:
+                    school_name = user_input.get(CONF_SCHOOL_NAME, str(user_input[CONF_SCHOOL_ID]))
                 school_semel = user_input[CONF_SCHOOL_ID]
                 _LOGGER.debug("Creating entry with title: %s (%s)", school_name, school_semel)
                 # Save school name in data for later use (e.g., title updates)

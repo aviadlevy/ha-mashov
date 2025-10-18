@@ -59,7 +59,8 @@ async def test_homework_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
         await hass.async_block_till_done()
 
     # Check homework sensor exists
-    homework_entity_id = f"sensor.mashov_{TEST_STUDENT['childGuid']}_homework"
+    # Entity ID is created from student name, not childGuid
+    homework_entity_id = "sensor.mashov_test_student_homework"
     state = hass.states.get(homework_entity_id)
 
     assert state is not None
@@ -111,7 +112,8 @@ async def test_behavior_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
-    behavior_entity_id = f"sensor.mashov_{TEST_STUDENT['childGuid']}_behavior"
+    # Entity ID is created from student name, not childGuid
+    behavior_entity_id = "sensor.mashov_test_student_behavior"
     state = hass.states.get(behavior_entity_id)
 
     assert state is not None
@@ -163,7 +165,8 @@ async def test_timetable_sensor(hass: HomeAssistant, mock_config_entry: MockConf
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
-    timetable_entity_id = f"sensor.mashov_{TEST_STUDENT['childGuid']}_timetable"
+    # Entity ID is created from student name, not childGuid
+    timetable_entity_id = "sensor.mashov_test_student_timetable"
     state = hass.states.get(timetable_entity_id)
 
     assert state is not None
