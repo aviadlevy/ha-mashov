@@ -2,25 +2,26 @@
 
 ## [Unreleased]
 
-### Added
-- TBD
-
-### Changed
-- TBD
-
-### Fixed
-- TBD
-
-## [1.0.0] - 2025-10-18
+## [1.0.1] - 2025-10-18
 
 ### Added
-- TBD
+- Full test suite with pytest and pytest-homeassistant-custom-component
+- GitHub Actions CI/CD pipeline for automated testing and linting
+- HACS validation in CI/CD workflow
+- Ruff linting and formatting configuration
+- Pre-commit hooks configuration
+- Dev container configuration for consistent development environment
+- Contributing guidelines (CONTRIBUTING.md)
+- Test fixtures and comprehensive test coverage for config_flow, sensors, and init
 
 ### Changed
-- TBD
+- Improved test infrastructure and coverage (52% overall, 72% for sensors)
+- Enhanced code quality with automated linting and formatting
 
 ### Fixed
-- TBD
+- Fixed `async_unload_entry` to handle cases where setup was mocked or failed
+- Fixed config_flow tests to prevent network calls and thread lingering issues
+- Fixed sensor tests entity_id format (using student name instead of childGuid)
 
 ## [1.0.0] - 2025-10-18
 
