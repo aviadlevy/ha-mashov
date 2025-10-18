@@ -11,6 +11,28 @@
 ### Fixed
 - TBD
 
+## [1.0.0] - 2025-10-18
+
+### Added
+- TBD
+
+### Changed
+- TBD
+
+### Fixed
+- TBD
+
+## [1.0.0] - 2025-10-18
+
+### Changed
+- Blueprints: שיפור תזמון TTS - ממתין שהרמקול יתחיל לנגן ואז שיהפוך ל-idle לפני שמחזיר את העוצמה
+- Blueprints: הוספת אפשרות להגדרת timeout להתחלת וסיום TTS בדף ההגדרות
+- `bag_reminder_tomorrow.yaml`: עודכן לגרסה v1.0.32 עם בקרת timeout מתקדמת
+- `mashov_daily_homework_announce.yaml`: עודכן לגרסה v1.0.6 עם בקרת timeout מתקדמת
+
+### Fixed
+- Blueprints: תיקון בעיית שינוי עוצמה תוך כדי הקראת TTS
+
 ## [0.1.61-beta.12] - 2025-10-11 (Pre-release)
 
 ### Added

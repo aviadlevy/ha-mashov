@@ -1,10 +1,10 @@
 blueprint:
   name: Mashov – Daily Homework & Behavior Announcement (Trace-friendly)
   description: >
-    Version v1.0.4. Announces today's behavior & homework at 15:00, skips nights & holidays,
+    Version v1.0.6. Announces today's behavior & homework at 15:00, skips nights & holidays,
     raises volume, speaks (Hebrew), then restores volume.
     This version is TRACE-FRIENDLY: every decision path has an alias and a reason.
-    Fixed TTS completion timing to prevent volume restoration before speech ends.
+    Fixed TTS timing: waits for speaker to start playing, then waits until idle before restoring volume.
   source_url: https://raw.githubusercontent.com/NirBY/ha-mashov/main/blueprints/automation/mashov/mashov_daily_homework_announce.yaml
   domain: automation
   input:
@@ -43,11 +43,21 @@ blueprint:
       description: Default Google Translate Hebrew is "iw" (also accepts "he")
       default: iw
       selector: { text: {} }
+    tts_start_timeout:
+      name: TTS start timeout (seconds)
+      description: How long to wait for speaker to start playing after TTS call (default 10 seconds)
+      default: 10
+      selector: { number: { min: 3, max: 30, step: 1, mode: slider } }
+    tts_finish_timeout:
+      name: TTS finish timeout (seconds)
+      description: How long to wait for speaker to become idle after playing (default 120 seconds / 2 minutes)
+      default: 120
+      selector: { number: { min: 30, max: 600, step: 10, mode: slider } }
 
     bp_version_info:
       name: Blueprint version
       description: Informational only; used in traces. Do not change.
-      default: "mashov_daily_homework_announce v1.0.4 (2025-10-15)"
+      default: "mashov_daily_homework_announce v1.0.6 (2025-10-18)"
       selector: { text: {} }
 
 mode: restart
@@ -65,6 +75,8 @@ variables:
   media_player: !input media_player
   max_volume: !input max_volume
   tts_language: !input tts_language
+  tts_start_timeout: !input tts_start_timeout
+  tts_finish_timeout: !input tts_finish_timeout
   # Blueprint version for trace/debug (from form)
   blueprint_version: !input bp_version_info
 
@@ -239,14 +251,19 @@ action:
           #     message: "{{ announcement_text }}"
           #     language: he
 
-          - alias: "Wait TTS end (≤2m)"
-            wait_template: >
-              {{ states(media_player) not in ['playing','buffering'] }}
-            timeout: "00:02:00"
+          - alias: "Wait for speaker to start playing"
+            wait_template: "{{ is_state(media_player, 'playing') }}"
+            timeout: "{{ '00:00:' ~ '%02d' | format(tts_start_timeout | int) }}"
             continue_on_timeout: true
 
-          - alias: "Additional safety delay"
-            delay: "00:00:03"
+          - alias: "Wait for speaker to become idle"
+            wait_template: "{{ is_state(media_player, 'idle') }}"
+            timeout: >
+              {% set seconds = tts_finish_timeout | int %}
+              {% set minutes = (seconds // 60) %}
+              {% set secs = (seconds % 60) %}
+              {{ '00:' ~ '%02d' | format(minutes) ~ ':' ~ '%02d' | format(secs) }}
+            continue_on_timeout: true
 
           - alias: "Restore previous volume (if known)"
             if:
