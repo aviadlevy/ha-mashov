@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-10-24
+
+### Added
+- **Grades sensor** - New sensor for student grades (`sensor.mashov_<student_id>_grades`)
+  - Displays grade, grading event, teacher name, subject, grade type
+  - Includes event date, grading period, and textual grades
+  - Full integration with size-based limiting (14KB target)
+
 ## [1.0.2] - 2025-10-24
 
 ### Fixed

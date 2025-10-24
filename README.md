@@ -95,6 +95,7 @@ For each child **N**, these sensors are created:
 - **Behavior** – `sensor.mashov_<student_id>_behavior`
 - **Timetable** – `sensor.mashov_<student_id>_timetable`
 - **Lessons History** – `sensor.mashov_<student_id>_lessons_history`
+- **Grades** – `sensor.mashov_<student_id>_grades` – 🆕 **New in v1.0.3**
 
 **State** = number of items.  
 **Attributes** (common): `items`, `formatted_summary`, `formatted_by_date`, `formatted_by_subject` (and for timetable: also table helpers).
