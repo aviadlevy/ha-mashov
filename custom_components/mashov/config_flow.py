@@ -20,6 +20,7 @@ from .const import (
     CONF_API_BASE,
     CONF_HOMEWORK_DAYS_BACK,
     CONF_HOMEWORK_DAYS_FORWARD,
+    CONF_MAX_ITEMS_IN_ATTRIBUTES,
     CONF_PASSWORD,
     CONF_SCHEDULE_DAY,
     CONF_SCHEDULE_DAYS,
@@ -32,6 +33,7 @@ from .const import (
     DEFAULT_API_BASE,
     DEFAULT_HOMEWORK_DAYS_BACK,
     DEFAULT_HOMEWORK_DAYS_FORWARD,
+    DEFAULT_MAX_ITEMS_IN_ATTRIBUTES,
     DEFAULT_SCHEDULE_DAY,
     DEFAULT_SCHEDULE_INTERVAL,
     DEFAULT_SCHEDULE_TIME,
@@ -318,6 +320,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             CONF_SCHEDULE_DAY: self.config_entry.options.get(CONF_SCHEDULE_DAY, DEFAULT_SCHEDULE_DAY),
             CONF_SCHEDULE_DAYS: self.config_entry.options.get(CONF_SCHEDULE_DAYS, [DEFAULT_SCHEDULE_DAY]),
             CONF_SCHEDULE_INTERVAL: self.config_entry.options.get(CONF_SCHEDULE_INTERVAL, DEFAULT_SCHEDULE_INTERVAL),
+            CONF_MAX_ITEMS_IN_ATTRIBUTES: self.config_entry.options.get(
+                CONF_MAX_ITEMS_IN_ATTRIBUTES, DEFAULT_MAX_ITEMS_IN_ATTRIBUTES
+            ),
         }
         _LOGGER.debug("Options defaults resolved: %s", options)
         schema = vol.Schema(
@@ -353,6 +358,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(
                     int, vol.Range(min=5, max=1440)
                 ),
+                vol.Optional(
+                    CONF_MAX_ITEMS_IN_ATTRIBUTES, default=options[CONF_MAX_ITEMS_IN_ATTRIBUTES]
+                ): vol.All(int, vol.Range(min=10, max=500)),
             }
         )
         _LOGGER.debug(

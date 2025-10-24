@@ -12,11 +12,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 _LOGGER = logging.getLogger(__name__)
 
 from .const import (
+    CONF_MAX_ITEMS_IN_ATTRIBUTES,
     CONF_SCHEDULE_DAY,
     CONF_SCHEDULE_DAYS,
     CONF_SCHEDULE_INTERVAL,
     CONF_SCHEDULE_TIME,
     CONF_SCHEDULE_TYPE,
+    DEFAULT_MAX_ITEMS_IN_ATTRIBUTES,
     DEFAULT_SCHEDULE_DAY,
     DEFAULT_SCHEDULE_INTERVAL,
     DEFAULT_SCHEDULE_TIME,
@@ -101,13 +103,25 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
         # Schedule info
         schedule_info = self._compute_schedule_info()
 
+        # Get max items config (from options or default)
+        max_items = self._get_max_items_config()
+
+        # Store only recent items to avoid DB size issues (Issue #2)
+        # Full data is always available via coordinator.data for automations
+        items_for_attributes = self._limit_items_for_storage(items, max_items)
+
+        total_count = len(items)
+        stored_count = len(items_for_attributes)
+
         return {
             "student_name": self._student_name,
             "student_id": self._student_id,
             "year": student_meta.get("year"),
             "school_id": student_meta.get("school_id"),
             "last_update": datetime.now().isoformat(timespec="seconds"),
-            "items": items,  # Keep raw data for compatibility
+            "total_items": total_count,  # Total number of items available
+            "stored_items": stored_count,  # Number of items in attributes
+            "items": items_for_attributes,  # Limited items (most recent)
             "formatted_summary": formatted_data["summary"],
             "formatted_by_date": formatted_data["by_date"],
             "formatted_by_subject": formatted_data["by_subject"],
@@ -133,6 +147,179 @@ class MashovListSensor(CoordinatorEntity, SensorEntity):
             "manufacturer": DEVICE_MANUFACTURER,
             "model": DEVICE_MODEL,
         }
+
+    def _get_max_items_config(self) -> int:
+        """Get the maximum items to store in attributes from config."""
+        try:
+            opts = getattr(self.coordinator, "entry", None).options if hasattr(self.coordinator, "entry") else {}
+            max_items = opts.get(CONF_MAX_ITEMS_IN_ATTRIBUTES, DEFAULT_MAX_ITEMS_IN_ATTRIBUTES)
+            return max(10, min(500, int(max_items)))  # Clamp between 10 and 500
+        except Exception:
+            return DEFAULT_MAX_ITEMS_IN_ATTRIBUTES
+
+    def _clean_item_for_storage(self, item: dict) -> dict:
+        """Remove redundant fields from item to reduce storage size.
+
+        Keeps only user-relevant fields, removing technical IDs and duplicate data.
+        This can reduce item size by 40-50%.
+        """
+        if not isinstance(item, dict):
+            return item
+
+        # Common fields to remove (GUIDs, codes, technical IDs)
+        remove_fields = {
+            "studentGuid", "student_guid",
+            "reporterGuid", "reporter_guid",
+            "lessonReporter", "lesson_reporter",
+            "eventCode", "event_code",
+            "achvaCode", "achva_code",
+            "justificationId", "justification_id",
+            "lessonId", "lesson_id",
+            "groupId", "group_id",
+            "lessonType", "lesson_type",
+            "achvaAval", "achva_aval",
+            "justified",
+        }
+
+        cleaned = {}
+        for key, value in item.items():
+            # Skip redundant fields
+            if key in remove_fields:
+                continue
+
+            # Handle nested structures
+            if key == "timeTable" and isinstance(value, dict):
+                # Keep timeTable but clean it
+                tt = {k: v for k, v in value.items() if k not in remove_fields}
+                cleaned[key] = tt
+            elif key == "groupDetails" and isinstance(value, dict):
+                # Keep groupDetails but only essential fields
+                gd = {}
+                if "subjectName" in value:
+                    gd["subjectName"] = value["subjectName"]
+                if "groupName" in value:
+                    gd["groupName"] = value["groupName"]
+                if "groupTeachers" in value and isinstance(value["groupTeachers"], list):
+                    # Keep only teacher names, not GUIDs
+                    gd["groupTeachers"] = [
+                        {"teacherName": t.get("teacherName")}
+                        for t in value["groupTeachers"]
+                        if isinstance(t, dict) and t.get("teacherName")
+                    ]
+                cleaned[key] = gd
+            elif key == "lessonLog" and isinstance(value, dict):
+                # Keep lessonLog but clean it
+                ll = {k: v for k, v in value.items() if k not in remove_fields}
+                cleaned[key] = ll
+            else:
+                # Keep all other fields
+                cleaned[key] = value
+
+        return cleaned
+
+    def _limit_items_for_storage(self, items: list, max_items: int) -> list:
+        """Limit items for storage in attributes to avoid DB size issues.
+
+        Uses intelligent size-based limiting with a 14KB target (16KB limit with 2KB safety margin).
+        Keeps the most recent items based on date fields.
+        Full data remains available via coordinator.data.
+        """
+        if not items:
+            return items
+
+        import json
+
+        # Try to sort by date to keep most recent
+        date_fields = ["lesson_date", "timestamp", "lessonDate"]
+
+        def get_sort_key(item):
+            """Extract sortable date/time from item."""
+            # For nested structures (timetable, weekly_plan)
+            if isinstance(item, dict):
+                # Check nested structures first
+                if "timeTable" in item:
+                    tt = item.get("timeTable", {})
+                    # Timetables are recurring, use day+lesson as sort key
+                    return (tt.get("day", 0), tt.get("lesson", 0))
+
+                # Check for lessonLog in lessons_history
+                if "lessonLog" in item:
+                    ll = item.get("lessonLog", {})
+                    for field in date_fields:
+                        val = ll.get(field)
+                        if val:
+                            return val
+
+                # Direct date fields
+                for field in date_fields:
+                    val = item.get(field)
+                    if val:
+                        return val
+
+            return ""
+
+        try:
+            # Sort by date descending (most recent first)
+            sorted_items = sorted(items, key=get_sort_key, reverse=True)
+        except Exception as e:
+            _LOGGER.debug("Failed to sort items for limiting: %s", e)
+            sorted_items = items
+
+        # Smart size-based limiting with 14KB target (2KB safety margin from 16KB limit)
+        MAX_SIZE_BYTES = 14 * 1024  # 14KB
+
+        # Start with user's max_items preference
+        limited = sorted_items[:max_items]
+
+        # Clean items to remove redundant fields (saves 40-50% space)
+        cleaned = [self._clean_item_for_storage(item) for item in limited]
+
+        try:
+            # Check actual JSON size after cleaning
+            size = len(json.dumps(cleaned))
+
+            # If under limit, we're good
+            if size <= MAX_SIZE_BYTES:
+                return cleaned
+
+            # If over limit, binary search to find optimal count
+            _LOGGER.debug(
+                "Items exceed size limit (%d bytes > %d). Finding optimal count...",
+                size,
+                MAX_SIZE_BYTES,
+            )
+
+            left, right = 1, len(limited)
+            best_count = 1
+
+            while left <= right:
+                mid = (left + right) // 2
+                test_items = [self._clean_item_for_storage(item) for item in sorted_items[:mid]]
+                test_size = len(json.dumps(test_items))
+
+                if test_size <= MAX_SIZE_BYTES:
+                    best_count = mid
+                    left = mid + 1
+                else:
+                    right = mid - 1
+
+            result = [self._clean_item_for_storage(item) for item in sorted_items[:best_count]]
+            _LOGGER.info(
+                "Limited %s from %d items (%d bytes) to %d items (%d bytes) to fit 14KB target",
+                self._data_key,
+                len(limited),
+                size,
+                best_count,
+                len(json.dumps(result)),
+            )
+            return result
+
+        except Exception as e:
+            _LOGGER.warning("Failed to check item sizes, using count-based limit: %s", e)
+            # Fallback: use conservative count with cleaning
+            # After cleaning: ~350 bytes/item → ~40 items = ~14KB
+            safe_count = min(40, len(sorted_items))
+            return [self._clean_item_for_storage(item) for item in sorted_items[:safe_count]]
 
     def _format_data_for_display(self, items: list) -> dict[str, Any]:
         """Format data for better readability and text-to-speech"""

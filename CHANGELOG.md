@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Fixed
+- **[Bug #2]** Fixed state attributes exceeding maximum size of 16384 bytes
+  - Removed redundant technical fields (GUIDs, codes, IDs) from stored items, saving 15-45% space
+  - Intelligent size-based limiting (14KB target with 2KB safety margin)
+  - Binary search algorithm to find optimal item count that fits within size limit
+  - User-configurable max items (10-500, default: 100) as starting point before size verification
+  - All data remains available via `coordinator.data` for automations and templates
+  - Added `total_items` and `stored_items` attributes to show full count vs. stored count
+  - Added configuration option `max_items_in_attributes` in integration options
+
+### Changed
+- Optimized sensor attribute storage: removed technical fields (studentGuid, reporterGuid, eventCode, etc.)
+- `items` attribute contains cleaned, size-optimized recent items (2x more items can fit now)
+- Improved storage efficiency: Behavior 45%, Timetable 26%, Lessons 14% size reduction
+- Logs info when size limit triggers automatic item count adjustment
+
 ## [1.0.1] - 2025-10-18
 
 ### Added

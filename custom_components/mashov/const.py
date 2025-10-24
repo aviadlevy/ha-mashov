@@ -27,6 +27,12 @@ DEFAULT_SCHEDULE_TIME = "14:00"
 DEFAULT_SCHEDULE_DAY = 0  # Monday
 DEFAULT_SCHEDULE_INTERVAL = 60  # 60 minutes
 
+# Maximum items to store in sensor attributes (to avoid DB size issues)
+# Full data is always available via coordinator.data
+# Note: Actual size is checked dynamically - this is a starting point before size verification
+CONF_MAX_ITEMS_IN_ATTRIBUTES = "max_items_in_attributes"
+DEFAULT_MAX_ITEMS_IN_ATTRIBUTES = 100  # Starting point; actual count limited by 14KB size check
+
 SENSOR_KEY_HOMEWORK = "homework"
 SENSOR_KEY_BEHAVIOR = "behavior"
 SENSOR_KEY_WEEKLY_PLAN = "weekly_plan"

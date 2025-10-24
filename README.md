@@ -47,9 +47,17 @@ Unofficial integration for **משו"ב (Mashov)** that logs into the student por
 4. Done — sensors for **each child** will be created.
 
 ### Options
+
+To configure options, go to: **Settings → Devices & Services → Mashov → Configure**
+
 - **Homework window**: days back (default 7), days forward (default 21)
 - **Daily refresh time**: default `02:30`
 - **API base**: default `https://web.mashov.info/api/` (override if your deployment differs)
+- **Max items in attributes**: maximum items to store in sensor attributes (default 100, range: 10-500)
+  - Controls how many recent items are stored in sensor attributes to prevent database size issues
+  - Sensors automatically clean technical fields and limit size to fit within Home Assistant's 16KB limit
+  - Full data is always available via `coordinator.data` for advanced automations
+  - Attributes show `total_items` (all available) and `stored_items` (actually stored in attributes)
 
 #### Important note about night-time polling
 - Pulling data at night may trigger email notifications from Mashov about account activity/logins. If this is undesirable:
@@ -73,6 +81,7 @@ mashov:
   homework_days_back: 7
   homework_days_forward: 21
   api_base: "https://web.mashov.info/api/"
+  max_items_in_attributes: 100  # 10-500, limits items stored in DB
 ```
 
 ---
@@ -90,7 +99,12 @@ For each child **N**, these sensors are created:
 **State** = number of items.  
 **Attributes** (common): `items`, `formatted_summary`, `formatted_by_date`, `formatted_by_subject` (and for timetable: also table helpers).
 
-> Tip: Use `{ state_attr('sensor.mashov_<id>_homework', 'items') }` to access raw lists.
+> **Tip**: Use `{{ state_attr('sensor.mashov_<id>_homework', 'items') }}` to access raw lists.
+>
+> **Note**: The `items` attribute contains cleaned, size-optimized recent items (technical fields removed). To see all items:
+> - `total_items` = total number of items available
+> - `stored_items` = number of items in the `items` attribute
+> - Full raw data is always available via `coordinator.data` for advanced automations
 
 ### Global Entities
 - **Holidays** – `sensor.mashov_holidays`  
