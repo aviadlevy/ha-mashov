@@ -27,6 +27,7 @@ from .const import (
     DEVICE_MODEL,
     DOMAIN,
     SENSOR_KEY_BEHAVIOR,
+    SENSOR_KEY_GRADES,
     SENSOR_KEY_HOMEWORK,
     SENSOR_KEY_LESSONS_HISTORY,
     SENSOR_KEY_TIMETABLE,
@@ -59,6 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 MashovListSensor(
                     coord, sid, slug, name, SENSOR_KEY_LESSONS_HISTORY, "Lessons History", "lessons_history"
                 ),
+                MashovListSensor(coord, sid, slug, name, SENSOR_KEY_GRADES, "Grades", "grades"),
             ]
         )
 

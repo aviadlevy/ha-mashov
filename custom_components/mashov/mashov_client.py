@@ -92,6 +92,7 @@ class MashovClient:
             "timetable": self._api_base + "students/{student_id}/timetable",
             "holidays": self._api_base + "holidays",
             "lessons_history": self._api_base + "students/{student_id}/lessons/history",
+            "grades": self._api_base + "students/{student_id}/grades",
         }
 
     async def async_open_session(self) -> None:
@@ -465,6 +466,7 @@ class MashovClient:
                 "weekly_plan": ENDPOINTS["weekly_plan"].format(student_id=sid),
                 "timetable": ENDPOINTS["timetable"].format(student_id=sid),
                 "lessons_history": ENDPOINTS["lessons_history"].format(student_id=sid),
+                "grades": ENDPOINTS["grades"].format(student_id=sid),
             }
 
             async def fetch(url_key: str):
@@ -504,8 +506,13 @@ class MashovClient:
                     _LOGGER.warning("Exception fetching %s for student %s: %s", url_key, sid, e)
                     return []  # Return empty list on exception
 
-            homework, behavior, weekly_plan, timetable, lessons_history = await asyncio.gather(
-                fetch("homework"), fetch("behavior"), fetch("weekly_plan"), fetch("timetable"), fetch("lessons_history")
+            homework, behavior, weekly_plan, timetable, lessons_history, grades = await asyncio.gather(
+                fetch("homework"),
+                fetch("behavior"),
+                fetch("weekly_plan"),
+                fetch("timetable"),
+                fetch("lessons_history"),
+                fetch("grades"),
             )
             return {
                 "homework": self._normalize_homework(homework),
@@ -513,6 +520,7 @@ class MashovClient:
                 "weekly_plan": self._normalize_weekly_plan(weekly_plan),
                 "timetable": self._normalize_timetable(timetable),
                 "lessons_history": self._normalize_lessons_history(lessons_history),
+                "grades": self._normalize_grades(grades),
             }
 
         _LOGGER.debug("Fetching data for all students in parallel")
@@ -689,3 +697,10 @@ class MashovClient:
         except Exception as e:
             _LOGGER.debug("normalize lessons history failed: %s", e)
         return items
+
+    def _normalize_grades(self, raw):
+        """Normalize grades data."""
+        if not raw or not isinstance(raw, list):
+            return []
+        # Grades come already normalized from the API
+        return raw
