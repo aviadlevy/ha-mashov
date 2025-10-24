@@ -65,7 +65,16 @@ async def test_homework_sensor(hass: HomeAssistant, mock_config_entry: MockConfi
 
     assert state is not None
     assert state.state == str(len(TEST_HOMEWORK))
-    assert state.attributes.get("items") == TEST_HOMEWORK
+    # Items are cleaned - technical fields removed
+    items = state.attributes.get("items")
+    assert len(items) == len(TEST_HOMEWORK)
+    assert items[0]["lesson_date"] == TEST_HOMEWORK[0]["lesson_date"]
+    assert items[0]["lesson"] == TEST_HOMEWORK[0]["lesson"]
+    assert items[0]["subject_name"] == TEST_HOMEWORK[0]["subject_name"]
+    assert items[0]["homework"] == TEST_HOMEWORK[0]["homework"]
+    # Technical fields should be removed
+    assert "lessonId" not in items[0]
+    assert "groupId" not in items[0]
 
 
 async def test_behavior_sensor(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
@@ -170,7 +179,15 @@ async def test_timetable_sensor(hass: HomeAssistant, mock_config_entry: MockConf
     state = hass.states.get(timetable_entity_id)
 
     assert state is not None
-    assert state.attributes.get("items") == TEST_TIMETABLE
+    # Items are cleaned - technical fields removed
+    items = state.attributes.get("items")
+    assert len(items) == len(TEST_TIMETABLE)
+    assert items[0]["timeTable"]["day"] == TEST_TIMETABLE[0]["timeTable"]["day"]
+    assert items[0]["timeTable"]["lesson"] == TEST_TIMETABLE[0]["timeTable"]["lesson"]
+    assert items[0]["groupDetails"] == TEST_TIMETABLE[0]["groupDetails"]
+    assert items[0]["groupTeachers"] == TEST_TIMETABLE[0]["groupTeachers"]
+    # Technical field should be removed from nested timeTable
+    assert "groupId" not in items[0]["timeTable"]
 
 
 async def test_holidays_sensor(hass: HomeAssistant, mock_config_entry: MockConfigEntry):

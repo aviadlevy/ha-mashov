@@ -358,9 +358,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(CONF_SCHEDULE_INTERVAL, default=options[CONF_SCHEDULE_INTERVAL]): vol.All(
                     int, vol.Range(min=5, max=1440)
                 ),
-                vol.Optional(
-                    CONF_MAX_ITEMS_IN_ATTRIBUTES, default=options[CONF_MAX_ITEMS_IN_ATTRIBUTES]
-                ): vol.All(int, vol.Range(min=10, max=500)),
+                vol.Optional(CONF_MAX_ITEMS_IN_ATTRIBUTES, default=options[CONF_MAX_ITEMS_IN_ATTRIBUTES]): vol.All(
+                    int, vol.Range(min=10, max=500)
+                ),
             }
         )
         _LOGGER.debug(
