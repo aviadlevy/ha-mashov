@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-10-24
+
 ### Fixed
 - **[Bug #2]** Fixed state attributes exceeding maximum size of 16384 bytes
   - Removed redundant technical fields (GUIDs, codes, IDs) from stored items, saving 15-45% space
