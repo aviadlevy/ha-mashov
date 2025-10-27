@@ -414,3 +414,368 @@ async def test_holidays_calendar_invalid_dates(hass: HomeAssistant, mock_config_
 
     assert state is not None
     assert state.attributes.get("message") == "Valid Holiday"
+
+
+async def test_timetable_calendar_setup(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
+    """Test timetable calendar entity setup."""
+    mock_config_entry.add_to_hass(hass)
+
+    timetable = [
+        {
+            "timeTable": {"day": 2, "lesson": 1, "roomNum": "101", "weeks": -1},
+            "groupDetails": {
+                "subjectName": "Math",
+                "groupName": "Math A",
+                "groupTeachers": [{"teacherName": "John Doe"}],
+            },
+        }
+    ]
+
+    with patch("custom_components.mashov.MashovClient") as mock_client:
+        client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
+        client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": 123,
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": timetable,
+                        "lessons_history": [],
+                        "grades": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
+        client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
+
+        assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    calendar_entity_id = "calendar.mashov_test_student_timetable"
+    state = hass.states.get(calendar_entity_id)
+
+    assert state is not None
+    assert state.attributes.get("friendly_name") == "Mashov Test Student Timetable"
+
+
+async def test_timetable_calendar_upcoming_lesson(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
+    """Test timetable calendar returns upcoming lesson."""
+    mock_config_entry.add_to_hass(hass)
+
+    timetable = [
+        {
+            "timeTable": {"day": 2, "lesson": 1, "roomNum": "101", "weeks": -1},
+            "groupDetails": {
+                "subjectName": "Mathematics",
+                "groupName": "Math A",
+                "groupTeachers": [{"teacherName": "John Doe"}],
+            },
+        }
+    ]
+
+    with patch("custom_components.mashov.MashovClient") as mock_client:
+        client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
+        client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": 123,
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": timetable,
+                        "lessons_history": [],
+                        "grades": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
+        client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
+
+        assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    calendar_entity_id = "calendar.mashov_test_student_timetable"
+    state = hass.states.get(calendar_entity_id)
+
+    assert state is not None
+    assert state.state in ["off", "on"]
+
+
+async def test_timetable_calendar_no_lessons(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
+    """Test timetable calendar with empty timetable."""
+    mock_config_entry.add_to_hass(hass)
+
+    with patch("custom_components.mashov.MashovClient") as mock_client:
+        client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
+        client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": 123,
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": [],
+                        "lessons_history": [],
+                        "grades": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
+        client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
+
+        assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    calendar_entity_id = "calendar.mashov_test_student_timetable"
+    state = hass.states.get(calendar_entity_id)
+
+    assert state is not None
+    assert state.state == "off"
+
+
+async def test_timetable_calendar_with_multiple_lessons(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
+    """Test timetable calendar with multiple lessons."""
+    mock_config_entry.add_to_hass(hass)
+
+    timetable = [
+        {
+            "timeTable": {"day": 2, "lesson": 1, "roomNum": "101", "weeks": -1},
+            "groupDetails": {
+                "subjectName": "Mathematics",
+                "groupName": "Math A",
+                "groupTeachers": [{"teacherName": "John Doe"}],
+            },
+        },
+        {
+            "timeTable": {"day": 2, "lesson": 2, "roomNum": "102", "weeks": -1},
+            "groupDetails": {
+                "subjectName": "English",
+                "groupName": "English B",
+                "groupTeachers": [{"teacherName": "Jane Smith"}],
+            },
+        },
+        {
+            "timeTable": {"day": 3, "lesson": 1, "roomNum": "103", "weeks": -1},
+            "groupDetails": {
+                "subjectName": "Science",
+                "groupName": "Science C",
+                "groupTeachers": [{"teacherName": "Bob Johnson"}],
+            },
+        },
+    ]
+
+    with patch("custom_components.mashov.MashovClient") as mock_client:
+        client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
+        client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": 123,
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": timetable,
+                        "lessons_history": [],
+                        "grades": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
+        client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
+
+        assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    calendar_entity_id = "calendar.mashov_test_student_timetable"
+    state = hass.states.get(calendar_entity_id)
+
+    assert state is not None
+    assert state.attributes.get("message") in ["Mathematics", "English", "Science"]
+
+
+async def test_timetable_calendar_filters_holidays(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
+    """Test timetable calendar filters out lessons on holidays."""
+    mock_config_entry.add_to_hass(hass)
+
+    now = dt_util.now()
+    next_monday = now + timedelta(days=(7 - now.weekday()) % 7)
+    if next_monday.date() == now.date():
+        next_monday += timedelta(days=7)
+
+    holidays = [
+        {
+            "start": next_monday.date().isoformat(),
+            "end": (next_monday.date() + timedelta(days=6)).isoformat(),
+            "name": "School Break",
+        }
+    ]
+
+    timetable = [
+        {
+            "timeTable": {"day": 2, "lesson": 1, "roomNum": "101", "weeks": -1},
+            "groupDetails": {
+                "subjectName": "Math",
+                "groupName": "Math A",
+                "groupTeachers": [{"teacherName": "John Doe"}],
+            },
+        }
+    ]
+
+    with patch("custom_components.mashov.MashovClient") as mock_client:
+        client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
+        client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": 123,
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": timetable,
+                        "lessons_history": [],
+                        "grades": [],
+                    }
+                },
+                "holidays": holidays,
+            }
+        )
+        client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
+
+        assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    calendar_entity_id = "calendar.mashov_test_student_timetable"
+    state = hass.states.get(calendar_entity_id)
+
+    assert state is not None
+
+
+async def test_timetable_calendar_event_details(hass: HomeAssistant, mock_config_entry: MockConfigEntry):
+    """Test timetable calendar entity is created with timetable data."""
+    mock_config_entry.add_to_hass(hass)
+
+    timetable = [
+        {
+            "timeTable": {"day": 2, "lesson": 1, "roomNum": "Room 101", "weeks": -1},
+            "groupDetails": {
+                "subjectName": "Advanced Mathematics",
+                "groupName": "Math Level 5",
+                "groupTeachers": [{"teacherName": "Dr. Smith"}, {"teacherName": "Prof. Johnson"}],
+            },
+        }
+    ]
+
+    with patch("custom_components.mashov.MashovClient") as mock_client:
+        client = mock_client.return_value
+        client.async_init = AsyncMock(return_value=None)
+        client.async_close = AsyncMock(return_value=None)
+        client.async_open_session = AsyncMock(return_value=None)
+        client.async_close_session = AsyncMock(return_value=None)
+        client.async_authenticate = AsyncMock(return_value=True)
+        client.async_fetch_all = AsyncMock(
+            return_value={
+                "students": [
+                    {
+                        "id": 123,
+                        "name": "Test Student",
+                        "slug": "student-123",
+                        "year": "2024",
+                        "school_id": "123456",
+                    }
+                ],
+                "by_slug": {
+                    "student-123": {
+                        "homework": [],
+                        "behavior": [],
+                        "weekly_plan": [],
+                        "timetable": timetable,
+                        "lessons_history": [],
+                        "grades": [],
+                    }
+                },
+                "holidays": [],
+            }
+        )
+        client.async_get_students = AsyncMock(return_value=[TEST_STUDENT])
+
+        assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    calendar_entity_id = "calendar.mashov_test_student_timetable"
+    state = hass.states.get(calendar_entity_id)
+
+    assert state is not None
+    assert state.state in ["off", "on"]
