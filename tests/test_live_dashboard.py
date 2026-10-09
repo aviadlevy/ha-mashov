@@ -33,6 +33,7 @@ KID = {
 }
 
 THURSDAY = "2026-10-08 09:00:00+00:00"
+FRIDAY = "2026-10-09 09:00:00+00:00"
 
 
 def _sections(config):
@@ -301,6 +302,51 @@ def _render_bag_day(hass: HomeAssistant, freezer, when: str, lessons: list, holi
     line = Template(card["state_content"][0], hass).async_render(parse_result=False)
     body = Template(popup["cards"][0]["content"], hass).async_render(parse_result=False)
     return line, body
+
+
+async def test_friday_shows_sundays_bag(hass: HomeAssistant, freezer):
+    """When tomorrow is Saturday, the card and pop-up show Sunday's lessons instead of "no school"."""
+    line, body = _render_bag_day(hass, freezer, FRIDAY, [_lesson(1, "Math"), _lesson(6, "Art")], [])
+
+    assert line == "🎒 ביום ראשון 1 שיעורים · Math"
+    assert 'title="🎒 התיק ליום ראשון"' in body
+    assert "| 1 | Math | Dana | 12 |" in body
+    assert "Art" not in body
+
+
+async def test_friday_with_sunday_holiday_shows_the_holiday(hass: HomeAssistant, freezer):
+    """A holiday on Sunday wins over Sunday's timetable."""
+    holiday = {"name": "Sukkot", "start": "2026-10-11", "end": "2026-10-11"}
+    line, body = _render_bag_day(hass, freezer, FRIDAY, [_lesson(1, "Math")], [holiday])
+
+    assert line == "🌴 ביום ראשון Sukkot · אין לימודים"
+    assert 'title="מחר שבת, וביום ראשון חופש"' in body
+    assert "Math" not in body
+
+
+async def test_friday_without_sunday_lessons_keeps_shabbat(hass: HomeAssistant, freezer):
+    """With no Sunday timetable, Friday still shows the Shabbat message."""
+    line, body = _render_bag_day(hass, freezer, FRIDAY, [_lesson(2, "Math")], [])
+
+    assert line == "😴 מחר שבת"
+    assert 'title="מחר שבת"' in body
+
+
+async def test_friday_with_saturday_lessons_shows_saturday(hass: HomeAssistant, freezer):
+    """A timetable with Saturday lessons keeps Saturday as tomorrow instead of skipping to Sunday."""
+    line, body = _render_bag_day(hass, freezer, FRIDAY, [_lesson(7, "Torah"), _lesson(1, "Math")], [])
+
+    assert line == "🎒 מחר 1 שיעורים · Torah"
+    assert 'title="🎒 התיק למחר"' in body
+    assert "Math" not in body
+
+
+async def test_weekday_shows_tomorrows_bag(hass: HomeAssistant, freezer):
+    """On other days the card still shows tomorrow (Thursday shows Friday's lessons)."""
+    line, body = _render_bag_day(hass, freezer, THURSDAY, [_lesson(6, "Art"), _lesson(1, "Math")], [])
+
+    assert line == "🎒 מחר 1 שיעורים · Art"
+    assert 'title="🎒 התיק למחר"' in body
 
 
 async def test_timetable_cells_cannot_break_the_table(hass: HomeAssistant, freezer):
