@@ -14,6 +14,7 @@
 - Restored English screenshots in the v1.1.0 release description with verified absolute image URLs.
 
 ### Fixed
+- Live dashboard: the student pop-up's timetable renders as a table again instead of raw `|` text. Pipes and line breaks in timetable and homework cells no longer break rows, and a school day with no lessons shows a message instead of an empty table.
 - Tag-triggered release automation preserves an existing release description, preventing manually added screenshots from being overwritten. Explicit workflow dispatch can still update release notes.
 
 ## [1.1.0] - 2026-10-08

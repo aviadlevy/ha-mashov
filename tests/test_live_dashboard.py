@@ -12,6 +12,7 @@ from homeassistant.components.lovelace.const import ConfigNotFound
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.template import Template
 from homeassistant.setup import async_setup_component
 import pytest
 
@@ -30,6 +31,8 @@ KID = {
     "holidays": "sensor.holidays",
     "calendar": "calendar.school",
 }
+
+THURSDAY = "2026-10-08 09:00:00+00:00"
 
 
 def _sections(config):
@@ -276,3 +279,50 @@ async def test_unrelated_dashboard_requires_overwrite(hass):
             DOMAIN, "create_live_dashboard", {"students": [{**KID, "person": None}]}, blocking=True
         )
     target.async_save.assert_not_awaited()
+
+
+def _lesson(day: int, subject: str) -> dict:
+    """A timetable item for Mashov day `day` (1=Sunday..7=Saturday)."""
+    return {
+        "timeTable": {"day": day, "lesson": 1, "roomNum": "12"},
+        "groupDetails": {"subjectName": subject, "groupTeachers": [{"teacherName": "Dana"}]},
+    }
+
+
+def _render_bag_day(hass: HomeAssistant, freezer, when: str, lessons: list, holidays: list) -> tuple[str, str]:
+    """Render the student card's line and pop-up body at `when`; return (card line, pop-up)."""
+    freezer.move_to(when)
+    hass.states.async_set("sensor.noa_timetable", "1", {"items": lessons})
+    hass.states.async_set("sensor.holidays", "0", {"items": holidays})
+    raw = {"name": "Noa", "timetable": "sensor.noa_timetable", "holidays": "sensor.holidays"}
+    student = normalize_students([raw])[0]
+    config = build_live_dashboard([student], title="Live", family_user_ids=[], viewer_user_ids={})
+    card, popup = _sections(config)[1]["cards"]
+    line = Template(card["state_content"][0], hass).async_render(parse_result=False)
+    body = Template(popup["cards"][0]["content"], hass).async_render(parse_result=False)
+    return line, body
+
+
+async def test_timetable_cells_cannot_break_the_table(hass: HomeAssistant, freezer):
+    """Pipes and newlines in lesson fields stay inside their cell; missing fields leave the cell empty."""
+    odd = _lesson(6, "Bible | Torah\nclass")
+    odd["groupDetails"]["groupTeachers"] = []
+    odd["timeTable"]["roomNum"] = None
+    _, body = _render_bag_day(hass, freezer, THURSDAY, [odd], [])
+
+    assert "| 1 | Bible \\| Torah class |  |  |\n" in body
+
+
+async def test_day_without_lessons_has_no_empty_table(hass: HomeAssistant, freezer):
+    """A school day with no timetable shows a message instead of a header-only table."""
+    _, body = _render_bag_day(hass, freezer, THURSDAY, [], [])
+
+    assert "אין מערכת למחר" in body
+    assert "| # |" not in body
+
+
+async def test_timetable_rows_stay_on_their_own_lines(hass: HomeAssistant, freezer):
+    """The separator row and the first lesson are separate lines, so Home Assistant renders a table."""
+    _, body = _render_bag_day(hass, freezer, THURSDAY, [_lesson(6, "Art")], [])
+
+    assert "|:-:|---|---|:-:|\n| 1 | Art | Dana | 12 |\n" in body

@@ -558,6 +558,11 @@ def _student_card(s: dict[str, Any]) -> dict[str, Any]:
     return card
 
 
+def _table_cell(expr: str) -> str:
+    """Jinja that prints `expr` as one markdown table cell: newlines become spaces, pipes are escaped."""
+    return "{{ ((" + expr + ") or '') | string | replace('\\r', '') | replace('\\n', ' ') | replace('|', '\\\\|') }}"
+
+
 def _popup_markdown(s: dict[str, Any]) -> str:
     """Markdown/Jinja body of the student pop-up; each block appears only if its sensor exists.
 
@@ -568,31 +573,37 @@ def _popup_markdown(s: dict[str, Any]) -> str:
     """
     parts = ['<div dir="rtl">']
     if s["timetable"] or s["holidays"]:
+        # Set L before the table: a `{%-` tag inside it would eat the newline ending the row above.
+        lessons = _lessons_for_day(s["timetable"]) if s["timetable"] else "{%- set L = [] -%}"
         lessons_loop = (
-            _lessons_for_day(s["timetable"]) + "{% for x in L %}"
-            "| {{ x.timeTable.lesson }} | {{ x.groupDetails.subjectName }} | "
-            "{{ ((x.groupDetails.groupTeachers or [{}])[0]).teacherName or '' }} | {{ x.timeTable.roomNum or '' }} |\n"
+            "{% for x in L %}"
+            f"| {{{{ x.timeTable.lesson }}}} | {_table_cell('x.groupDetails.subjectName')} | "
+            f"{_table_cell('((x.groupDetails.groupTeachers or [{}])[0]).teacherName')} | "
+            f"{_table_cell('x.timeTable.roomNum')} |\n"
             "{% endfor %}"
-            if s["timetable"]
-            else ""
         )
         parts.append(
             "{% set t = (now() + timedelta(days=1)).date() %}"
             "{% set d = (t.isoweekday() % 7) + 1 %}"
             "{% set ns = namespace(h='') %}"
             + _tomorrow_holiday(s["holidays"], "x.name")
+            + lessons
             + '\n{% if ns.h %}<ha-alert dir="rtl" alert-type="success" title="מחר חופש">🌴 {{ ns.h }}</ha-alert>\n'
             '{% elif d == 7 %}<ha-alert dir="rtl" alert-type="info" title="מחר שבת">😴 אין לימודים</ha-alert>\n'
             '{% else %}<ha-alert dir="rtl" alert-type="info" title="🎒 התיק למחר"></ha-alert>\n\n'
-            "| # | מקצוע | מורה | חדר |\n|:-:|---|---|:-:|\n" + lessons_loop + "{% endif %}\n"
+            "{% if L %}| # | מקצוע | מורה | חדר |\n|:-:|---|---|:-:|\n"
+            + lessons_loop
+            + "{% else %}אין מערכת למחר\n{% endif %}"
+            "{% endif %}\n"
         )
     if s["homework"]:
+        task = _table_cell("(x.homework or '') | truncate(80)")
         parts.append(
             "\n### 📚 שיעורי בית אחרונים\n"
             f"{{% set hw = (state_attr('{s['homework']}', 'items') or []) | selectattr('lesson_date') | sort(attribute='lesson_date', reverse=true) %}}"
             "{% if hw %}\n| תאריך | מקצוע | משימה |\n|:-:|---|---|\n"
             "{% for x in hw[:6] %}| {{ as_timestamp(x.lesson_date) | timestamp_custom('%d/%m') }} | "
-            "{{ x.subject_name }} | {{ (x.homework or '') | replace('\\n', ' ') | truncate(80) }} |\n{% endfor %}"
+            f"{_table_cell('x.subject_name')} | {task} |\n{{% endfor %}}"
             "{% else %}\nאין שיעורי בית 🎉{% endif %}\n"
         )
     if s["behavior"]:
